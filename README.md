@@ -17,7 +17,7 @@ Fases 1 a 3 hechas en el servidor: familias, invitaciones, roles, inicio de sesi
 | 1. Base | Repositorio, React + TypeScript + Vite + Tailwind, esquema de base de datos, CI | Hecha |
 | 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | Hecha en el servidor; la interfaz va en la fase 4 |
 | 3. Motor de códigos | Lista de palabras, HMAC-SHA256, rotación a medianoche | Hecha; falta revisión humana de la lista |
-| 4. Frontend | Panel, familia, instrucciones, PWA | Pendiente |
+| 4. Frontend | Panel, familia, instrucciones, PWA | En curso: las tres pantallas corren en modo muestra; falta conectarlas al servidor |
 | 5. Endurecimiento | Rate limiting, revisión de RLS, auditoría | Pendiente |
 | 6. Publicación | Documentación, política de privacidad, despliegue | Pendiente |
 
@@ -36,6 +36,8 @@ pnpm install
 pnpm dev
 ```
 
+Hoy la aplicación solo corre en **modo muestra**: usa datos de ejemplo y lo avisa en una franja amarilla en todas las pantallas. Para verla en un teléfono de la misma red wifi: `pnpm dev --host` y abrir la dirección de red que imprime.
+
 Gates que deben pasar antes de cada commit:
 
 ```bash
@@ -53,7 +55,7 @@ Los tests de integración (`pnpm test:integration`) necesitan `supabase start` y
 ## Estructura
 
 ```
-src/                  Frontend (React)
+src/                  Frontend (React). src/data/source.ts es la única puerta hacia el servidor.
 supabase/migrations/  Esquema de la base. Todo cambio de esquema es una migración nueva.
 supabase/functions/   Edge Functions. La lógica está en _shared; cada función es una línea.
 supabase/templates/   Correo con el código de inicio de sesión

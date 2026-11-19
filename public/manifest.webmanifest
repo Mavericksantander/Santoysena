@@ -1,0 +1,11 @@
+{
+  "name": "Santo y Seña",
+  "short_name": "Santo y Seña",
+  "description": "Verificación de identidad familiar con un código que cambia cada día.",
+  "lang": "es-CL",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [{ "src": "/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
