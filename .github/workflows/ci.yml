@@ -32,6 +32,7 @@ jobs:
       - run: pnpm check:functions
       - run: pnpm build
       - run: pnpm check:bundle
+      - run: pnpm check:sw
       - run: pnpm audit --prod
 
   supabase:
