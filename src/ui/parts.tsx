@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import type { DataSource } from '../data/source.ts'
 
 export function Screen({ title, children, back }: { title: string; children: ReactNode; back?: boolean }) {
   return (
@@ -121,5 +122,17 @@ export function Problem({ children }: { children: ReactNode }) {
     <p role="alert" className="rounded-2xl border-2 border-red-700 p-4 text-xl font-semibold dark:border-red-400">
       {children}
     </p>
+  )
+}
+
+/** Salida de la cuenta. En la muestra no hay cuenta de la que salir. */
+export function SignOut({ source, onSignOut }: { source: DataSource; onSignOut(): void }) {
+  if (source.isDemo) return null
+  return (
+    <div className="mt-10">
+      <BigButton quiet onClick={onSignOut}>
+        CERRAR SESIÓN
+      </BigButton>
+    </div>
   )
 }

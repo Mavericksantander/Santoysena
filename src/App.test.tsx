@@ -264,6 +264,13 @@ describe('modo muestra', () => {
     }
   })
 
+  test('en la muestra no hay sesión que cerrar', async () => {
+    render(<App auth={demoAuth()} source={demoSource()} />)
+    await goTo('#/familia')
+    await screen.findByText('Abuela Rosa')
+    expect(screen.queryByRole('button', { name: 'CERRAR SESIÓN' })).toBeNull()
+  })
+
   test('con datos reales no aparece el aviso de muestra', async () => {
     render(<App auth={signedIn()} source={source()} />)
     await screen.findByText('COPIHUE')
@@ -373,6 +380,15 @@ describe('sin familia', () => {
     expect(await screen.findByText('COPIHUE')).toBeTruthy()
     expect(createFamily).toHaveBeenCalledWith('Familia Soto')
     expect(screen.getByText('Familia Soto')).toBeTruthy()
+  })
+
+  test('quien no tiene familia puede cerrar sesión', async () => {
+    const auth = signedIn()
+    render(<App auth={auth} source={source({ listFamilies: () => Promise.resolve([]) })} />)
+    await screen.findByText('Todavía no perteneces a ninguna familia.')
+    press('CERRAR SESIÓN')
+    expect(await screen.findByLabelText('Tu correo')).toBeTruthy()
+    expect(auth.signOut).toHaveBeenCalledTimes(1)
   })
 
   test('si no se puede crear lo dice', async () => {

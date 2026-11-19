@@ -79,7 +79,8 @@ function SignedIn({
   if (families.state === 'error') return <LoadError what="tu familia" onRetry={families.retry} />
 
   const family = families.value.find((candidate) => candidate.id === selectedId) ?? families.value[0]
-  if (!family) return <NoFamilyScreen source={source} onCreated={families.retry} />
+  const signOut = () => void auth.signOut()
+  if (!family) return <NoFamilyScreen source={source} onCreated={families.retry} onSignOut={signOut} />
   if (route === '#/familia') {
     return (
       <FamilyScreen
@@ -96,7 +97,7 @@ function SignedIn({
           window.location.hash = '#/'
           families.restart()
         }}
-        onSignOut={() => void auth.signOut()}
+        onSignOut={signOut}
       />
     )
   }

@@ -1,8 +1,16 @@
 import { type FormEvent, useState } from 'react'
 import type { DataSource } from '../data/source.ts'
-import { BigButton, Field, Problem, Screen } from '../ui/parts.tsx'
+import { BigButton, Field, Problem, Screen, SignOut } from '../ui/parts.tsx'
 
-export function NoFamilyScreen({ source, onCreated }: { source: DataSource; onCreated(): void }) {
+export function NoFamilyScreen({
+  source,
+  onCreated,
+  onSignOut,
+}: {
+  source: DataSource
+  onCreated(): void
+  onSignOut(): void
+}) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -42,6 +50,7 @@ export function NoFamilyScreen({ source, onCreated }: { source: DataSource; onCr
           CREAR FAMILIA
         </BigButton>
       </form>
+      <SignOut source={source} onSignOut={onSignOut} />
     </Screen>
   )
 }
