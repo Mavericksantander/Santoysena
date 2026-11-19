@@ -29,11 +29,13 @@ jobs:
         run: pnpm test
         env:
           TZ: America/Santiago
+      - run: pnpm check:functions
       - run: pnpm build
+      - run: pnpm check:bundle
       - run: pnpm audit --prod
 
-  db:
-    name: Migraciones en Supabase local
+  supabase:
+    name: Base y Edge Functions en Supabase local
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -43,11 +45,29 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Levantar Postgres y aplicar migraciones
-        run: pnpm exec supabase db start
+      - name: Levantar Supabase y aplicar migraciones
+        run: pnpm exec supabase start
       - name: Lint del esquema
         run: pnpm exec supabase db lint --fail-on warning
       - name: Tests de la base contra Supabase real
         run: pnpm test tests/db
         env:
           TEST_DATABASE_URL: postgresql://supabase_admin:postgres@127.0.0.1:54322/postgres
+      - name: Esperar a que las Edge Functions respondan
+        run: |
+          for intento in $(seq 1 60); do
+            estado=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:54321/functions/v1/create-family -d '{}' || true)
+            if [ "$estado" = "401" ]; then exit 0; fi
+            sleep 2
+          done
+          echo "Las Edge Functions no respondieron 401 a un anónimo; último estado: $estado"
+          docker ps --format '{{.Names}}' | grep -i edge | xargs -r -n1 docker logs --tail 80
+          exit 1
+      - name: Tests de integración
+        run: |
+          pnpm exec supabase status -o env > "$RUNNER_TEMP/supabase.env"
+          echo "Variables disponibles: $(cut -d= -f1 "$RUNNER_TEMP/supabase.env" | tr '\n' ' ')"
+          set -a
+          . "$RUNNER_TEMP/supabase.env"
+          set +a
+          pnpm test:integration

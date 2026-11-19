@@ -11,7 +11,9 @@ enabled = true
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
-schemas = ["public", "graphql_public"]
+# Santo y Seña: el cliente no usa la API de datos. Solo se expone el esquema app,
+# que únicamente service_role (las Edge Functions) puede usar.
+schemas = ["app"]
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returned from a view, table, or stored procedure. Limits payload size
@@ -240,7 +242,7 @@ max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+otp_expiry = 600
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
@@ -251,6 +253,17 @@ otp_expiry = 3600
 # pass = "env(SENDGRID_API_KEY)"
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
+
+# Santo y Seña: el inicio de sesión es con un código de 6 dígitos por correo.
+# Las dos plantillas muestran el código y no un enlace, porque en iOS un enlace
+# abre Safari y no la aplicación instalada.
+[auth.email.template.magic_link]
+subject = "Tu código para entrar a Santo y Seña"
+content_path = "./supabase/templates/codigo.html"
+
+[auth.email.template.confirmation]
+subject = "Tu código para entrar a Santo y Seña"
+content_path = "./supabase/templates/codigo.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]
@@ -427,3 +440,42 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Edge Functions. Todas exigen una sesión de usuario (lo verifica @supabase/server)
+# y comparten un mismo mapa de imports.
+
+[functions.create-family]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/create-family/index.ts"
+
+[functions.create-invitation]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/create-invitation/index.ts"
+
+[functions.accept-invitation]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/accept-invitation/index.ts"
+
+[functions.list-family-members]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/list-family-members/index.ts"
+
+[functions.remove-family-member]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/remove-family-member/index.ts"
+
+[functions.set-member-role]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/set-member-role/index.ts"

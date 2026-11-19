@@ -10,12 +10,12 @@ Gratis, sin publicidad, sin venta de datos, de código abierto (AGPL-3.0).
 
 ## Estado
 
-Fase 2 de 6 en curso. Las reglas de familia, invitaciones y roles ya viven en la base. **Todavía no hay Edge Functions, inicio de sesión ni generación de códigos.**
+Fase 2 de 6 hecha en el servidor: reglas de familia en la base, Edge Functions e inicio de sesión con código por correo. **Todavía no hay generación de códigos ni interfaz.**
 
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1. Base | Repositorio, React + TypeScript + Vite + Tailwind, esquema de base de datos, CI | Hecha |
-| 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | En curso: reglas en la base hechas; faltan Edge Functions e inicio de sesión |
+| 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | Hecha en el servidor; la interfaz va en la fase 4 |
 | 3. Motor de códigos | Lista de palabras, HMAC-SHA256, rotación a medianoche | Pendiente |
 | 4. Frontend | Panel, familia, instrucciones, PWA | Pendiente |
 | 5. Endurecimiento | Rate limiting, revisión de RLS, auditoría | Pendiente |
@@ -41,18 +41,26 @@ Gates que deben pasar antes de cada commit:
 ```bash
 pnpm lint
 pnpm typecheck
+pnpm check:functions
 TZ=UTC pnpm test
 TZ=America/Santiago pnpm test
 pnpm build
+pnpm check:bundle
 ```
+
+Los tests de integración (`pnpm test:integration`) necesitan `supabase start` y las variables de `supabase status -o env`. El CI los corre en cada PR.
 
 ## Estructura
 
 ```
 src/                  Frontend (React)
 supabase/migrations/  Esquema de la base. Todo cambio de esquema es una migración nueva.
-supabase/functions/   Edge Functions (desde la fase 2)
+supabase/functions/   Edge Functions. La lógica está en _shared; cada función es una línea.
+supabase/templates/   Correo con el código de inicio de sesión
 tests/db/             Tests del esquema y de las reglas (PGlite local, Supabase real en CI)
+tests/functions/      Tests de las Edge Functions, con sesiones firmadas localmente
+tests/integration/    Tests contra un Supabase local completo (CI)
+docs/api.md           Funciones, entradas y códigos de error
 docs/estados.md       Statecharts de invitación y membresía con sus invariantes
 ```
 
@@ -66,9 +74,12 @@ docs/estados.md       Statecharts de invitación y membresía con sus invariante
 6. **La misma suite corre en dos bases.** En local aplica las migraciones reales sobre Postgres en memoria (PGlite) con un stub mínimo de Supabase, sin Docker. En CI corre contra Supabase local con `TEST_DATABASE_URL`, para que el stub no pueda esconder una diferencia.
 7. **La autorización vive en funciones SQL del esquema `app`.** Reciben al actor de forma explícita y solo `service_role` puede ejecutarlas. Las Edge Functions autentican y delegan. Los estados válidos están en [docs/estados.md](docs/estados.md).
 
+8. **La API de datos solo expone el esquema `app`.** El cliente nunca consulta tablas: `public` no está expuesto y `app` solo lo puede usar `service_role`. Al desplegar en un proyecto alojado hay que repetir esa configuración en el panel (esquemas expuestos y plantillas de correo).
+9. **Inicio de sesión con código de 6 dígitos por correo**, válido 10 minutos. Sin contraseñas y sin enlaces, porque en iOS un enlace abre Safari y no la aplicación instalada.
+
 ## Secretos
 
-Nunca se versionan `.env` ni llaves. En el cliente solo van la URL y la anon key de Supabase. La service-role key y `SERVER_SECRET` viven únicamente en las variables de entorno de las Edge Functions.
+Nunca se versionan `.env` ni llaves. En el cliente solo van la URL y la anon key de Supabase. La llave secreta y `SERVER_SECRET` viven únicamente en las variables de entorno de las Edge Functions. `pnpm check:bundle` falla si alguna aparece en el bundle del cliente.
 
 ## Licencia
 
