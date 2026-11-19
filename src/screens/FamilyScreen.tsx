@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import type { DataSource, Family, Invitation, Member, Role } from '../data/source.ts'
 import { useLoad } from '../data/useLoad.ts'
 import { invitationLink } from '../invitation.ts'
-import { BigButton, LoadError, Loading, Problem, Screen } from '../ui/parts.tsx'
+import { BigButton, LoadError, Loading, Problem, Screen, SignOut } from '../ui/parts.tsx'
 
 function roleLabel(member: Member): string {
   if (member.isOwner) return 'Creó la familia'
@@ -272,13 +272,7 @@ export function FamilyScreen({
           }}
         />
       )}
-      {!source.isDemo && (
-        <div className="mt-10">
-          <BigButton quiet onClick={onSignOut}>
-            CERRAR SESIÓN
-          </BigButton>
-        </div>
-      )}
+      <SignOut source={source} onSignOut={onSignOut} />
     </Screen>
   )
 }

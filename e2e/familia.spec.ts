@@ -103,6 +103,11 @@ test('una familia: entrar, invitar, ver el mismo código, administrar y sacar a 
   await expect(camila.getByText('Todavía no perteneces a ninguna familia.')).toBeVisible()
   await expect(camila.getByTestId('codigo')).toHaveCount(0)
 
+  // Sin familia, Camila igual puede cerrar su sesión.
+  await camila.screenshot({ path: 'e2e-resultados/6-sin-familia.png', fullPage: true })
+  await camila.getByRole('button', { name: 'CERRAR SESIÓN' }).click()
+  await expect(camila.getByLabel('Tu correo')).toBeVisible()
+
   // Al cerrar sesión, el código deja de estar en pantalla.
   await page.getByRole('link', { name: 'MI FAMILIA' }).click()
   await page.getByRole('button', { name: 'CERRAR SESIÓN' }).click()
