@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Tests en UTC
+        run: pnpm test
+        env:
+          TZ: UTC
+      - name: Tests en America/Santiago
+        run: pnpm test
+        env:
+          TZ: America/Santiago
+      - run: pnpm build
+      - run: pnpm audit --prod
+
+  db:
+    name: Migraciones en Supabase local
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Levantar Postgres y aplicar migraciones
+        run: pnpm exec supabase db start
+      - name: Lint del esquema
+        run: pnpm exec supabase db lint --fail-on warning
