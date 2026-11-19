@@ -1,14 +1,91 @@
-import { useCallback } from 'react'
-import type { DataSource, Family, Member } from '../data/source.ts'
+import { useCallback, useState } from 'react'
+import type { DataSource, Family, Invitation, Member } from '../data/source.ts'
 import { useLoad } from '../data/useLoad.ts'
-import { LoadError, Loading, Screen } from '../ui/parts.tsx'
+import { invitationLink } from '../invitation.ts'
+import { BigButton, LoadError, Loading, Problem, Screen } from '../ui/parts.tsx'
 
 function roleLabel(member: Member): string {
   if (member.isOwner) return 'Creó la familia'
   return member.role === 'admin' ? 'Administra' : 'Miembro'
 }
 
-export function FamilyScreen({ source, family }: { source: DataSource; family: Family }) {
+function Invite({ source, family }: { source: DataSource; family: Family }) {
+  const [invitation, setInvitation] = useState<Invitation | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  async function create() {
+    setBusy(true)
+    setFailed(false)
+    setCopied(false)
+    try {
+      setInvitation(await source.createInvitation(family.id))
+    } catch {
+      setFailed(true)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const link = invitation ? invitationLink(invitation.token, window.location) : ''
+
+  async function share() {
+    if (navigator.share) {
+      await navigator.share({ title: 'Santo y Seña', text: `Únete a ${family.name}`, url: link }).catch(() => {})
+    } else {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+    }
+  }
+
+  return (
+    <section aria-labelledby="invitar" className="mt-8 flex flex-col gap-4">
+      <h2 id="invitar" className="text-2xl font-extrabold">
+        Invitar a alguien
+      </h2>
+      {failed && <Problem>No pudimos crear la invitación. Intenta de nuevo.</Problem>}
+      {invitation ? (
+        <>
+          <p className="text-xl">
+            Manda este enlace solo a tu familiar. Sirve una sola vez y vence en 24 horas.
+          </p>
+          <p
+            data-testid="enlace"
+            className="break-all rounded-2xl bg-neutral-100 p-4 font-mono text-base dark:bg-neutral-800"
+          >
+            {link}
+          </p>
+          <BigButton onClick={() => void share()}>ENVIAR INVITACIÓN</BigButton>
+          {copied && (
+            <p role="status" className="text-center text-xl font-semibold">
+              Enlace copiado.
+            </p>
+          )}
+        </>
+      ) : (
+        <BigButton onClick={() => void create()} busy={busy}>
+          CREAR INVITACIÓN
+        </BigButton>
+      )}
+    </section>
+  )
+}
+
+export function FamilyScreen({
+  source,
+  family,
+  others,
+  onSelect,
+  onSignOut,
+}: {
+  source: DataSource
+  family: Family
+  /** Las otras familias de esta persona, para cambiar entre ellas. */
+  others: Family[]
+  onSelect(familyId: string): void
+  onSignOut(): void
+}) {
   const members = useLoad(useCallback(() => source.listMembers(family.id), [source, family.id]))
 
   return (
@@ -18,7 +95,7 @@ export function FamilyScreen({ source, family }: { source: DataSource; family: F
       {members.state === 'error' && <LoadError what="tu familia" onRetry={members.retry} />}
       {members.state === 'ready' && (
         <>
-          <ul className="mt-6 flex flex-col gap-3">
+          <ul aria-label="Miembros" className="mt-6 flex flex-col gap-3">
             {members.value.map((member) => (
               <li
                 key={member.userId}
@@ -36,6 +113,26 @@ export function FamilyScreen({ source, family }: { source: DataSource; family: F
             de inmediato.
           </p>
         </>
+      )}
+      {family.role === 'admin' && <Invite source={source} family={family} />}
+      {others.length > 0 && (
+        <section aria-labelledby="otras" className="mt-8 flex flex-col gap-3">
+          <h2 id="otras" className="text-2xl font-extrabold">
+            Tus otras familias
+          </h2>
+          {others.map((other) => (
+            <BigButton key={other.id} quiet onClick={() => onSelect(other.id)}>
+              {other.name}
+            </BigButton>
+          ))}
+        </section>
+      )}
+      {!source.isDemo && (
+        <div className="mt-10">
+          <BigButton quiet onClick={onSignOut}>
+            CERRAR SESIÓN
+          </BigButton>
+        </div>
       )}
     </Screen>
   )

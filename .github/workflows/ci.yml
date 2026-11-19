@@ -73,3 +73,25 @@ jobs:
           . "$RUNNER_TEMP/supabase.env"
           set +a
           pnpm test:integration
+      - name: Construir la aplicación conectada al Supabase local
+        run: |
+          set -a
+          . "$RUNNER_TEMP/supabase.env"
+          set +a
+          VITE_SUPABASE_URL="$API_URL" VITE_SUPABASE_PUBLISHABLE_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}" pnpm build
+          pnpm check:bundle
+      - name: Instalar el navegador de pruebas
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Prueba de punta a punta en tamaño de teléfono
+        run: |
+          set -a
+          . "$RUNNER_TEMP/supabase.env"
+          set +a
+          pnpm test:e2e
+      - name: Guardar capturas de pantalla y trazas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: punta-a-punta
+          path: e2e-resultados
+          if-no-files-found: ignore

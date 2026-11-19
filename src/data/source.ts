@@ -1,9 +1,13 @@
-// Todo lo que la interfaz sabe del servidor pasa por esta interfaz. Hoy la
-// implementa la fuente de muestra; la real llamará a las Edge Functions.
+// Todo lo que la interfaz sabe del servidor pasa por estas interfaces. Las
+// implementan la fuente de muestra y la conexión real con Supabase.
+
+export type Role = 'admin' | 'member'
 
 export interface Family {
   id: string
   name: string
+  /** Rol de quien está mirando dentro de esta familia. */
+  role: Role
 }
 
 export interface DailyCode {
@@ -19,8 +23,22 @@ export interface DailyCode {
 export interface Member {
   userId: string
   displayName: string
-  role: 'admin' | 'member'
+  role: Role
   isOwner: boolean
+}
+
+export interface Invitation {
+  token: string
+  expiresAt: Date
+}
+
+/** Falla de una petición. `code` es el código estable del servidor (docs/api.md) o `network_error`. */
+export class RequestError extends Error {
+  readonly code: string
+  constructor(code: string) {
+    super(code)
+    this.code = code
+  }
 }
 
 export interface DataSource {
@@ -29,4 +47,7 @@ export interface DataSource {
   listFamilies(): Promise<Family[]>
   getFamilyCode(familyId: string): Promise<DailyCode>
   listMembers(familyId: string): Promise<Member[]>
+  createFamily(name: string): Promise<void>
+  createInvitation(familyId: string): Promise<Invitation>
+  acceptInvitation(token: string): Promise<void>
 }

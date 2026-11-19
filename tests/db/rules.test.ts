@@ -500,10 +500,11 @@ describe('listar mis familias', () => {
     const { owner, member, family } = await familyOfThree()
     const island = await one<string>("app.create_family($1, 'Familia Pakarati')", [member])
     expect(await families(owner)).toEqual([{ id: family, name: 'Familia Pérez', role: 'admin' }])
-    expect(await families(member)).toEqual([
-      { id: family, name: 'Familia Pérez', role: 'member' },
-      { id: island, name: 'Familia Pakarati', role: 'admin' },
-    ])
+    // Las dos membresías nacen en el mismo instante de esta transacción, así que su orden no está definido.
+    const mine = await families(member)
+    expect(mine).toHaveLength(2)
+    expect(mine).toContainEqual({ id: family, name: 'Familia Pérez', role: 'member' })
+    expect(mine).toContainEqual({ id: island, name: 'Familia Pakarati', role: 'admin' })
   })
 
   test('quien no pertenece a ninguna recibe una lista vacía', async () => {
