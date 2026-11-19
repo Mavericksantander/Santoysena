@@ -75,6 +75,11 @@ export const listFamilyMembers: Operation<{ familyId: Uuid }> = {
   }),
 }
 
+export const listFamilies: Operation<null> = {
+  parse: () => null,
+  run: async (call, actor) => ({ families: await call('list_families', { p_actor: actor }) }),
+}
+
 export const removeFamilyMember: Operation<{ familyId: Uuid; target: Uuid }> = {
   parse: (body) => ({
     familyId: parseUuid(body.family_id, 'family_id'),
