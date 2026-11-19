@@ -38,6 +38,8 @@ pnpm dev
 
 Hoy la aplicación solo corre en **modo muestra**: usa datos de ejemplo y lo avisa en una franja amarilla en todas las pantallas. Para verla en un teléfono de la misma red wifi: `pnpm dev --host` y abrir la dirección de red que imprime.
 
+La muestra publicada está en https://mavericksantander.github.io/Santoysena/ (rama `gh-pages`). Para actualizarla: `pnpm build --base=/Santoysena/` y subir el contenido de `dist/` a esa rama.
+
 Gates que deben pasar antes de cada commit:
 
 ```bash
