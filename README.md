@@ -17,7 +17,7 @@ Fases 1 a 3 hechas en el servidor: familias, invitaciones, roles, inicio de sesi
 | 1. Base | Repositorio, React + TypeScript + Vite + Tailwind, esquema de base de datos, CI | Hecha |
 | 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | Hecha en el servidor; la interfaz va en la fase 4 |
 | 3. Motor de códigos | Lista de palabras, HMAC-SHA256, rotación a medianoche | Hecha; falta revisión humana de la lista |
-| 4. Frontend | Panel, familia, instrucciones, PWA | En curso: ingreso con código, código del día, familia, invitaciones, sacar miembros, salir y cambiar roles conectados al servidor. Faltan service worker y notificaciones |
+| 4. Frontend | Panel, familia, instrucciones, PWA | En curso: ingreso con código, código del día, familia, invitaciones, sacar miembros, salir y cambiar roles conectados al servidor. La aplicación abre sin conexión ([docs/sin-conexion.md](docs/sin-conexion.md)). Faltan las notificaciones |
 | 5. Endurecimiento | Rate limiting, revisión de RLS, auditoría | Pendiente |
 | 6. Publicación | Documentación, política de privacidad, despliegue | Pendiente |
 
@@ -50,6 +50,7 @@ TZ=UTC pnpm test
 TZ=America/Santiago pnpm test
 pnpm build
 pnpm check:bundle
+pnpm check:sw
 ```
 
 Los tests de integración (`pnpm test:integration`) y la prueba de punta a punta (`pnpm test:e2e`) necesitan `supabase start` y las variables de `supabase status -o env`. El CI los corre en cada PR.
