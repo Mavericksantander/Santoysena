@@ -95,6 +95,12 @@ export function supabaseBackend(
     acceptInvitation: async (token) => {
       await call('accept-invitation', { token })
     },
+    removeMember: async (familyId, userId) => {
+      await call('remove-family-member', { family_id: familyId, user_id: userId })
+    },
+    setMemberRole: async (familyId, userId, role) => {
+      await call('set-member-role', { family_id: familyId, user_id: userId, role })
+    },
   }
 
   return { auth, source }

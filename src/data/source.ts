@@ -50,4 +50,7 @@ export interface DataSource {
   createFamily(name: string): Promise<void>
   createInvitation(familyId: string): Promise<Invitation>
   acceptInvitation(token: string): Promise<void>
+  /** Saca a alguien de la familia. Con el propio `userId`, es salir de ella. */
+  removeMember(familyId: string, userId: string): Promise<void>
+  setMemberRole(familyId: string, userId: string, role: Role): Promise<void>
 }

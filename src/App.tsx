@@ -47,7 +47,17 @@ function useInvitationCapture() {
 
 const SELECTED_FAMILY_KEY = 'santo-y-sena.familia'
 
-function SignedIn({ auth, source, route }: { auth: Auth; source: DataSource; route: string }) {
+function SignedIn({
+  auth,
+  source,
+  session,
+  route,
+}: {
+  auth: Auth
+  source: DataSource
+  session: Session
+  route: string
+}) {
   const invitation = useSyncExternalStore(pendingInvitation.subscribe, pendingInvitation.get)
   const families = useLoad(useCallback(() => source.listFamilies(), [source]))
   const [selectedId, setSelectedId] = useState(() => localStorage.getItem(SELECTED_FAMILY_KEY))
@@ -75,11 +85,16 @@ function SignedIn({ auth, source, route }: { auth: Auth; source: DataSource; rou
       <FamilyScreen
         source={source}
         family={family}
+        me={session.userId}
         others={families.value.filter((candidate) => candidate.id !== family.id)}
         onSelect={(id) => {
           localStorage.setItem(SELECTED_FAMILY_KEY, id)
           setSelectedId(id)
           window.location.hash = '#/'
+        }}
+        onLeft={() => {
+          window.location.hash = '#/'
+          families.restart()
         }}
         onSignOut={() => void auth.signOut()}
       />
@@ -96,7 +111,7 @@ export default function App({ auth, source }: { auth: Auth; source: DataSource }
   let screen
   if (!state.known) screen = <Loading what="tu sesión" />
   else if (!state.session) screen = <LoginScreen auth={auth} />
-  else screen = <SignedIn auth={auth} source={source} route={route} />
+  else screen = <SignedIn auth={auth} source={source} session={state.session} route={route} />
 
   return (
     <div className="flex min-h-dvh flex-col bg-white text-neutral-950 dark:bg-neutral-950 dark:text-white">

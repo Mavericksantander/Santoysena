@@ -6,7 +6,7 @@ import { demoAuth, demoSource } from './data/demo.ts'
 import { expiryTime } from './data/format.ts'
 import { LONGEST_WAIT_MS, RETRY_WHEN_ALREADY_DUE_MS } from './data/useLoad.ts'
 import type { Auth, Session } from './auth/auth.ts'
-import { type DailyCode, type DataSource, type Family, RequestError } from './data/source.ts'
+import { type DailyCode, type DataSource, type Family, type Member, RequestError } from './data/source.ts'
 import { pendingInvitation } from './invitation.ts'
 
 const FAMILY: Family = { id: 'f1', name: 'Familia Pérez Soto', role: 'admin' }
@@ -36,6 +36,8 @@ function source(overrides: Partial<DataSource> = {}): DataSource {
     createFamily: () => Promise.resolve(),
     createInvitation: () => Promise.resolve({ token: TOKEN, expiresAt: new Date('2099-01-01T03:00:00Z') }),
     acceptInvitation: () => Promise.resolve(),
+    removeMember: () => Promise.resolve(),
+    setMemberRole: () => Promise.resolve(),
     ...overrides,
   }
 }
@@ -484,5 +486,192 @@ describe('varias familias', () => {
     expect(await screen.findByText('VOLCÁN')).toBeTruthy()
     expect(screen.getByText('Familia Pakarati')).toBeTruthy()
     expect(screen.queryByText('COPIHUE')).toBeNull()
+  })
+})
+
+describe('administrar la familia', () => {
+  const ROSA: Member = { userId: '1', displayName: 'Abuela Rosa', role: 'admin', isOwner: true }
+  const PEDRO: Member = { userId: '2', displayName: 'Pedro', role: 'admin', isOwner: false }
+  const CAMILA: Member = { userId: '3', displayName: 'Camila', role: 'member', isOwner: false }
+  const asMember: Family = { ...FAMILY, role: 'member' }
+  const row = (name: RegExp) => screen.queryByRole('button', { name })
+  const rows = () => screen.getAllByRole('listitem').map((item) => item.textContent)
+
+  async function openFamily(userId: string, overrides: Partial<DataSource> = {}) {
+    render(<App auth={fakeAuth({ userId })} source={source(overrides)} />)
+    await goTo('#/familia')
+    await screen.findByText('Abuela Rosa')
+  }
+
+  test('quien administra puede abrir la fila de los demás, pero no la de quien creó la familia ni la propia', async () => {
+    await openFamily('2')
+    expect(row(/Camila/)!.getAttribute('aria-expanded')).toBe('false')
+    expect(row(/Abuela Rosa/)).toBeNull()
+    expect(row(/Pedro/)).toBeNull()
+    expect(rows()).toEqual(['Abuela RosaCreó la familia', 'PedroAdministra', 'CamilaMiembro'])
+  })
+
+  test('un miembro regular no puede abrir ninguna fila', async () => {
+    await openFamily('3', { listFamilies: () => Promise.resolve([asMember]) })
+    expect(row(/Abuela Rosa|Pedro|Camila/)).toBeNull()
+  })
+
+  test('la fila se abre y se vuelve a cerrar', async () => {
+    await openFamily('1')
+    fireEvent.click(row(/Pedro/)!)
+    expect(row(/Pedro/)!.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByRole('button', { name: 'SACAR DE LA FAMILIA' })).toBeTruthy()
+    fireEvent.click(row(/Pedro/)!)
+    expect(row(/Pedro/)!.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByRole('button', { name: 'SACAR DE LA FAMILIA' })).toBeNull()
+  })
+
+  test('sacar a alguien pide confirmación, y decir que no no saca a nadie', async () => {
+    const removeMember = vi.fn<DataSource['removeMember']>(() => Promise.resolve())
+    await openFamily('1', { removeMember })
+    fireEvent.click(row(/Pedro/)!)
+    press('SACAR DE LA FAMILIA')
+    expect(screen.getByText(/¿Sacar a Pedro\? El código de hoy cambia de inmediato/)).toBeTruthy()
+    expect(removeMember).not.toHaveBeenCalled()
+    // Un segundo toque en el mismo lugar cae en el no: la respuesta segura va primero.
+    const answers = screen.getAllByRole('button', { name: /^(SÍ|NO), / }).map((button) => button.textContent)
+    expect(answers).toEqual(['NO, DEJAR', 'SÍ, SACAR A PEDRO'])
+    press('NO, DEJAR')
+    expect(screen.queryByText(/¿Sacar a Pedro\?/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'SACAR DE LA FAMILIA' })).toBeTruthy()
+    expect(removeMember).not.toHaveBeenCalled()
+  })
+
+  test('al confirmar saca a esa persona de esta familia y la lista se actualiza', async () => {
+    const removeMember = vi.fn<DataSource['removeMember']>(() => Promise.resolve())
+    const listMembers = vi
+      .fn<DataSource['listMembers']>()
+      .mockResolvedValueOnce([ROSA, PEDRO, CAMILA])
+      .mockResolvedValue([ROSA, CAMILA])
+    await openFamily('1', { removeMember, listMembers })
+    fireEvent.click(row(/Pedro/)!)
+    press('SACAR DE LA FAMILIA')
+    press('SÍ, SACAR A PEDRO')
+    await waitFor(() => expect(rows()).toEqual(['Abuela RosaCreó la familia', 'CamilaMiembro']))
+    expect(removeMember.mock.calls).toEqual([['f1', '2']])
+  })
+
+  test('mientras se saca a alguien no se puede apretar dos veces', async () => {
+    const removeMember = vi.fn<DataSource['removeMember']>(() => new Promise(() => {}))
+    await openFamily('1', { removeMember })
+    fireEvent.click(row(/Pedro/)!)
+    press('SACAR DE LA FAMILIA')
+    press('SÍ, SACAR A PEDRO')
+    const waiting = await screen.findAllByRole('button', { name: 'Un momento…' })
+    expect(waiting).toHaveLength(2)
+    for (const button of waiting) {
+      expect((button as HTMLButtonElement).disabled).toBe(true)
+      fireEvent.click(button)
+    }
+    expect(removeMember).toHaveBeenCalledTimes(1)
+  })
+
+  test('si no se puede sacar lo dice, y la persona sigue en la lista', async () => {
+    const listMembers = vi.fn(source().listMembers)
+    await openFamily('1', { listMembers, removeMember: () => Promise.reject(new RequestError('network_error')) })
+    fireEvent.click(row(/Pedro/)!)
+    press('SACAR DE LA FAMILIA')
+    press('SÍ, SACAR A PEDRO')
+    expect((await screen.findByRole('alert')).textContent).toContain('No pudimos hacer el cambio')
+    expect(screen.getByRole('button', { name: 'SACAR DE LA FAMILIA' })).toBeTruthy()
+    expect(rows()[1]).toContain('Pedro')
+    expect(listMembers).toHaveBeenCalledTimes(1)
+  })
+
+  test('a un miembro se le puede dejar administrar, y a quien administra se le puede quitar', async () => {
+    const setMemberRole = vi.fn<DataSource['setMemberRole']>(() => Promise.resolve())
+    const listMembers = vi
+      .fn<DataSource['listMembers']>()
+      .mockResolvedValueOnce([ROSA, PEDRO, CAMILA])
+      .mockResolvedValueOnce([ROSA, PEDRO, { ...CAMILA, role: 'admin' }])
+      .mockResolvedValue([ROSA, { ...PEDRO, role: 'member' }, { ...CAMILA, role: 'admin' }])
+    await openFamily('1', { setMemberRole, listMembers })
+
+    fireEvent.click(row(/Camila/)!)
+    expect(screen.queryByRole('button', { name: 'QUE YA NO ADMINISTRE' })).toBeNull()
+    press('DEJAR QUE ADMINISTRE')
+    await waitFor(() => expect(rows()[2]).toContain('CamilaAdministra'))
+    fireEvent.click(row(/Camila/)!)
+
+    fireEvent.click(row(/Pedro/)!)
+    expect(screen.queryByRole('button', { name: 'DEJAR QUE ADMINISTRE' })).toBeNull()
+    press('QUE YA NO ADMINISTRE')
+    await waitFor(() => expect(rows()[1]).toContain('PedroMiembro'))
+    expect(setMemberRole.mock.calls).toEqual([
+      ['f1', '3', 'admin'],
+      ['f1', '2', 'member'],
+    ])
+  })
+
+  test('si no se puede cambiar el rol lo dice', async () => {
+    await openFamily('1', { setMemberRole: () => Promise.reject(new RequestError('not_an_admin')) })
+    fireEvent.click(row(/Camila/)!)
+    press('DEJAR QUE ADMINISTRE')
+    expect((await screen.findByRole('alert')).textContent).toContain('No pudimos hacer el cambio')
+    expect(rows()[2]).toContain('CamilaMiembro')
+  })
+
+  test('quien creó la familia no puede salir de ella', async () => {
+    await openFamily('1')
+    expect(screen.queryByRole('button', { name: 'SALIR DE ESTA FAMILIA' })).toBeNull()
+  })
+
+  test('salir pide confirmación, y decir que no deja todo igual', async () => {
+    const removeMember = vi.fn<DataSource['removeMember']>(() => Promise.resolve())
+    await openFamily('3', { removeMember, listFamilies: () => Promise.resolve([asMember]) })
+    press('SALIR DE ESTA FAMILIA')
+    expect(screen.getByText(/¿Salir de Familia Pérez Soto\? Dejarás de ver su código/)).toBeTruthy()
+    const answers = screen.getAllByRole('button', { name: /^(SÍ|NO), / }).map((button) => button.textContent)
+    expect(answers).toEqual(['NO, QUEDARME', 'SÍ, SALIR'])
+    press('NO, QUEDARME')
+    expect(screen.getByRole('button', { name: 'SALIR DE ESTA FAMILIA' })).toBeTruthy()
+    expect(removeMember).not.toHaveBeenCalled()
+  })
+
+  test('al salir deja de pedirse el código de esa familia', async () => {
+    const removeMember = vi.fn<DataSource['removeMember']>(() => Promise.resolve())
+    const getFamilyCode = vi.fn<DataSource['getFamilyCode']>(() => Promise.resolve(code()))
+    let resolveFamilies!: (families: Family[]) => void
+    const listFamilies = vi
+      .fn<DataSource['listFamilies']>()
+      .mockResolvedValueOnce([asMember])
+      .mockReturnValueOnce(new Promise((resolve) => (resolveFamilies = resolve)))
+    await openFamily('3', { removeMember, getFamilyCode, listFamilies })
+    getFamilyCode.mockClear()
+    press('SALIR DE ESTA FAMILIA')
+    press('SÍ, SALIR')
+    // Mientras el servidor confirma en qué familias queda, no se muestra nada de la que dejó.
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain('Cargando'))
+    expect(removeMember.mock.calls).toEqual([['f1', '3']])
+    expect(window.location.hash).toBe('#/')
+    await act(async () => resolveFamilies([]))
+    expect(await screen.findByText('Todavía no perteneces a ninguna familia.')).toBeTruthy()
+    expect(getFamilyCode).not.toHaveBeenCalled()
+  })
+
+  test('si no se puede salir lo dice y sigue en la familia', async () => {
+    const listFamilies = vi.fn<DataSource['listFamilies']>(() => Promise.resolve([asMember]))
+    await openFamily('3', { listFamilies, removeMember: () => Promise.reject(new RequestError('network_error')) })
+    press('SALIR DE ESTA FAMILIA')
+    press('SÍ, SALIR')
+    expect((await screen.findByRole('alert')).textContent).toContain('No pudimos sacarte de la familia')
+    expect(window.location.hash).toBe('#/familia')
+    expect(listFamilies).toHaveBeenCalledTimes(1)
+  })
+
+  test('en la muestra, sacar y cambiar el rol se ven en la lista', async () => {
+    const demo = demoSource()
+    await demo.removeMember('muestra', '2')
+    await demo.setMemberRole('muestra', '3', 'admin')
+    expect(await demo.listMembers('muestra')).toEqual([
+      { userId: '1', displayName: 'Abuela Rosa', role: 'admin', isOwner: true },
+      { userId: '3', displayName: 'Camila', role: 'admin', isOwner: false },
+      { userId: '4', displayName: 'Tata Luis', role: 'member', isOwner: false },
+    ])
   })
 })

@@ -17,7 +17,7 @@ Fases 1 a 3 hechas en el servidor: familias, invitaciones, roles, inicio de sesi
 | 1. Base | Repositorio, React + TypeScript + Vite + Tailwind, esquema de base de datos, CI | Hecha |
 | 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | Hecha en el servidor; la interfaz va en la fase 4 |
 | 3. Motor de códigos | Lista de palabras, HMAC-SHA256, rotación a medianoche | Hecha; falta revisión humana de la lista |
-| 4. Frontend | Panel, familia, instrucciones, PWA | En curso: ingreso con código, código del día, familia e invitaciones conectados al servidor. Faltan sacar miembros y cambiar roles desde la app, service worker y notificaciones |
+| 4. Frontend | Panel, familia, instrucciones, PWA | En curso: ingreso con código, código del día, familia, invitaciones, sacar miembros, salir y cambiar roles conectados al servidor. Faltan service worker y notificaciones |
 | 5. Endurecimiento | Rate limiting, revisión de RLS, auditoría | Pendiente |
 | 6. Publicación | Documentación, política de privacidad, despliegue | Pendiente |
 

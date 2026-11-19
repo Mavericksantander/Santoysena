@@ -30,7 +30,7 @@ async function todaysCode(page: Page): Promise<string[]> {
   return words
 }
 
-test('dos personas de una familia entran con su correo y ven el mismo código', async ({ page, browser }) => {
+test('una familia: entrar, invitar, ver el mismo código, administrar y sacar a alguien', async ({ page, browser }) => {
   // Rosa entra por primera vez y crea la familia.
   await page.goto('/')
   await expect(page.getByRole('note')).toHaveCount(0)
@@ -82,8 +82,30 @@ test('dos personas de una familia entran con su correo y ven el mismo código', 
   await expect(stranger.getByRole('alert')).toContainText('Esta invitación ya no sirve')
   await expect(stranger.getByTestId('codigo')).toHaveCount(0)
 
-  // Al cerrar sesión, el código deja de estar en pantalla.
-  await camila.getByRole('button', { name: 'CERRAR SESIÓN' }).click()
-  await expect(camila.getByLabel('Tu correo')).toBeVisible()
+  // Rosa deja que Camila administre: desde ese momento Camila puede invitar.
+  const members = page.getByRole('list', { name: 'Miembros' }).getByRole('listitem')
+  await page.getByRole('button', { name: /Camila/ }).click()
+  await page.getByRole('button', { name: 'DEJAR QUE ADMINISTRE' }).click()
+  await expect(members.nth(1)).toContainText('Administra')
+  await page.screenshot({ path: 'e2e-resultados/4-administrar.png', fullPage: true })
+  await camila.reload()
+  await expect(camila.getByRole('button', { name: 'CREAR INVITACIÓN' })).toBeVisible()
+
+  // Rosa saca a Camila: el código de hoy cambia y Camila deja de verlo.
+  await page.getByRole('button', { name: 'SACAR DE LA FAMILIA' }).click()
+  await expect(page.getByText('¿Sacar a Camila?')).toBeVisible()
+  await page.screenshot({ path: 'e2e-resultados/5-confirmar.png', fullPage: true })
+  await page.getByRole('button', { name: 'SÍ, SACAR A CAMILA' }).click()
+  await expect(members).toHaveText([/Rosa.*Creó la familia/])
+  await page.getByRole('link', { name: 'Volver' }).click()
+  expect(await todaysCode(page)).not.toEqual(rosasCode)
+  await camila.reload()
+  await expect(camila.getByText('Todavía no perteneces a ninguna familia.')).toBeVisible()
   await expect(camila.getByTestId('codigo')).toHaveCount(0)
+
+  // Al cerrar sesión, el código deja de estar en pantalla.
+  await page.getByRole('link', { name: 'MI FAMILIA' }).click()
+  await page.getByRole('button', { name: 'CERRAR SESIÓN' }).click()
+  await expect(page.getByLabel('Tu correo')).toBeVisible()
+  await expect(page.getByTestId('codigo')).toHaveCount(0)
 })

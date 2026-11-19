@@ -49,3 +49,29 @@ El Dueño no tiene transiciones de salida: no se le puede cambiar el rol ni saca
 | Quien sale pierde el acceso al instante | Toda función consulta `family_members` en cada llamada; no hay caché de membresía. |
 | No se puede averiguar qué familias existen | Familia ajena y familia inexistente responden el mismo `not_a_member`. |
 | El cliente no puede saltarse las reglas | `anon` y `authenticated` no tienen uso del esquema `app`, ni execute, ni privilegios sobre las tablas. |
+
+## Sacar a alguien desde la aplicación
+
+Estados de la fila de un miembro en la pantalla Mi familia, para quien administra. Salir de la familia sigue el mismo camino con una sola persona: la propia.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Cerrada
+    Cerrada --> Abierta: tocar la fila
+    Abierta --> Cerrada: tocar la fila
+    Abierta --> Confirmando: SACAR DE LA FAMILIA
+    Confirmando --> Abierta: NO, DEJAR
+    Confirmando --> Sacando: SÍ, SACAR
+    Sacando --> Abierta: falló (se avisa)
+    Sacando --> [*]: la persona sale de la lista
+    Abierta --> CambiandoRol: dejar o quitar la administración
+    CambiandoRol --> Abierta: terminó, bien o mal
+```
+
+| Invariante | Qué la protege |
+|---|---|
+| Nadie sale de una familia con un solo toque | `remove-family-member` solo se llama desde Confirmando. Tests "sacar a alguien pide confirmación" y "salir pide confirmación" en `src/App.test.tsx`. |
+| Un toque doble no repite la acción | En Sacando y CambiandoRol los botones están deshabilitados. Test "mientras se saca a alguien no se puede apretar dos veces". |
+| Lo que muestra la pantalla no decide nada | Las filas que se pueden abrir son solo una ayuda: quién puede sacar o ascender lo deciden `remove_family_member` y `set_member_role` en cada llamada. |
+| Quien sale no sigue viendo el código | Al salir se descarta la lista de familias antes de volver a pedirla. Test "al salir deja de pedirse el código de esa familia". |
+
