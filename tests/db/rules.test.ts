@@ -450,3 +450,44 @@ describe('cambiar roles', () => {
     await expectRejected(db, () => setRole(stranger, family, member, 'admin'), /^not_a_member$/)
   })
 })
+
+describe('contexto del código diario', () => {
+  const context = async (actor: string, family: string) =>
+    (
+      await db.query<{ timezone: string; code_epoch: number }>(
+        'select timezone, code_epoch from app.family_code_context($1, $2)',
+        [actor, family],
+      )
+    ).rows
+
+  test('todo miembro recibe la misma zona horaria y época de su familia', async () => {
+    const { owner, member, family } = await familyOfThree()
+    const expected = [{ timezone: 'America/Santiago', code_epoch: 0 }]
+    expect(await context(owner, family)).toEqual(expected)
+    expect(await context(member, family)).toEqual(expected)
+  })
+
+  test('cada familia recibe su propio contexto, aunque la persona esté en varias', async () => {
+    const { owner, member, family } = await familyOfThree()
+    const island = await one<string>("app.create_family($1, 'Familia Pakarati', 'Pacific/Easter')", [owner])
+    await remove(owner, family, member)
+    expect(await context(owner, family)).toEqual([{ timezone: 'America/Santiago', code_epoch: 1 }])
+    expect(await context(owner, island)).toEqual([{ timezone: 'Pacific/Easter', code_epoch: 0 }])
+  })
+
+  test('un extraño no lo recibe, ni distingue una familia ajena de una inexistente', async () => {
+    const { family } = await familyOfThree()
+    await db.exec('reset role')
+    const stranger = await createUser(db)
+    await actAsService()
+    await expectRejected(db, () => context(stranger, family), /^not_a_member$/)
+    await expectRejected(db, () => context(stranger, NOBODY), /^not_a_member$/)
+  })
+
+  test('quien es expulsado lo pierde al instante, y la época que ven los demás ya cambió', async () => {
+    const { owner, member, family } = await familyOfThree()
+    await remove(owner, family, member)
+    await expectRejected(db, () => context(member, family), /^not_a_member$/)
+    expect(await context(owner, family)).toEqual([{ timezone: 'America/Santiago', code_epoch: 1 }])
+  })
+})

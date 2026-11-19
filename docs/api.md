@@ -10,8 +10,11 @@ Todas las funciones son `POST` con cuerpo JSON y exigen una sesión de usuario e
 | `list-family-members` | `family_id` | `members`: `user_id`, `display_name`, `role`, `is_owner`, `joined_at` |
 | `remove-family-member` | `family_id`, `user_id` | objeto vacío |
 | `set-member-role` | `family_id`, `user_id`, `role` (`admin` o `member`) | objeto vacío |
+| `get-family-code` | `family_id` | `family_id`, `date`, `timezone`, `word_one`, `word_two`, `expires_at` |
 
 El actor siempre sale de la sesión. Ningún campo del cuerpo permite actuar a nombre de otra persona.
+
+`get-family-code` no acepta fecha, hora ni zona: las pone el servidor. `expires_at` es el primer instante del día siguiente en la zona de la familia, por ejemplo `2026-11-19T00:00:00-03:00`.
 
 ## Errores
 

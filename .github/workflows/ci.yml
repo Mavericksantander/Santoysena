@@ -45,6 +45,14 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Los puertos de Supabase (54321 a 54329) están dentro del rango de puertos
+      # efímeros de Linux. Sin reservarlos, una conexión saliente del runner puede
+      # ocupar uno justo cuando el contenedor intenta abrirlo, y falla con
+      # "address already in use".
+      - name: Reservar los puertos de Supabase
+        run: sudo sysctl -w net.ipv4.ip_local_reserved_ports=54320-54330
+      - name: Generar una llave del generador de códigos solo para este run
+        run: echo "SERVER_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Levantar Supabase y aplicar migraciones
         run: pnpm exec supabase start
       - name: Lint del esquema
