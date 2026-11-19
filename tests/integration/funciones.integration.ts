@@ -117,7 +117,7 @@ describe('recorrido completo de una familia', () => {
     })
     expect(
       await callFunction('create-family', { name: 'F', timezone: 'Marte/Olympus' }, rosa.token),
-    ).toEqual({ status: 400, body: { code: 'invalid_input' } })
+    ).toEqual({ status: 400, body: { code: 'invalid_input', field: 'timezone' } })
   })
 })
 
