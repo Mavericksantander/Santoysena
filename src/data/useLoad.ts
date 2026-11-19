@@ -28,7 +28,7 @@ function delayUntil(at: Date): number {
 export function useLoad<T>(
   load: () => Promise<T>,
   refreshAt: (value: T) => Date | null = never,
-): Loaded<T> & { retry(): void } {
+): Loaded<T> & { retry(): void; restart(): void } {
   const [result, setResult] = useState<Loaded<T>>({ state: 'loading' })
   const [attempt, setAttempt] = useState(0)
 
@@ -60,5 +60,15 @@ export function useLoad<T>(
     }
   }, [load, refreshAt, attempt])
 
-  return { ...result, retry: () => setAttempt((n) => n + 1) }
+  const retry = () => setAttempt((n) => n + 1)
+  return {
+    ...result,
+    /** Vuelve a pedir el dato y sigue mostrando el anterior mientras llega. */
+    retry,
+    /** Vuelve a pedir el dato cuando el anterior ya no vale: mientras llega, no hay dato. */
+    restart: () => {
+      setResult({ state: 'loading' })
+      retry()
+    },
+  }
 }

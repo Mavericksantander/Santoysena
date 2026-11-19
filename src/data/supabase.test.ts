@@ -107,6 +107,18 @@ describe('fuente de datos real', () => {
     ])
   })
 
+  test('sacar a alguien y cambiar su rol llaman a su función con lo justo', async () => {
+    answers['/functions/v1/remove-family-member'] = { status: 200, body: {} }
+    answers['/functions/v1/set-member-role'] = { status: 200, body: {} }
+    const { source } = backend()
+    await source.removeMember('f1', 'u2')
+    await source.setMemberRole('f1', 'u3', 'admin')
+    expect(sent.map((request) => [new URL(request.url).pathname, request.body])).toEqual([
+      ['/functions/v1/remove-family-member', { family_id: 'f1', user_id: 'u2' }],
+      ['/functions/v1/set-member-role', { family_id: 'f1', user_id: 'u3', role: 'admin' }],
+    ])
+  })
+
   test('un rechazo del servidor llega como su código estable', async () => {
     answers['/functions/v1/get-family-code'] = { status: 403, body: { code: 'not_a_member' } }
     await expect(backend().source.getFamilyCode('f1')).rejects.toEqual(new RequestError('not_a_member'))

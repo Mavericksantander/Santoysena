@@ -4,7 +4,7 @@
 
 import { endOfLocalDay, localDateAt } from '../../supabase/functions/_shared/local-day.ts'
 import type { Auth } from '../auth/auth.ts'
-import type { DataSource } from './source.ts'
+import type { DataSource, Member } from './source.ts'
 
 const TIMEZONE = 'America/Santiago'
 
@@ -21,6 +21,13 @@ const SAMPLE_CODES = [
 const FAMILY = { id: 'muestra', name: 'Familia Pérez Soto', role: 'admin' as const }
 
 export function demoSource(now: () => Date = () => new Date()): DataSource {
+  // Los cambios viven en la memoria de esta pestaña: al recargar vuelve la familia de ejemplo.
+  let members: Member[] = [
+    { userId: '1', displayName: 'Abuela Rosa', role: 'admin', isOwner: true },
+    { userId: '2', displayName: 'Pedro', role: 'admin', isOwner: false },
+    { userId: '3', displayName: 'Camila', role: 'member', isOwner: false },
+    { userId: '4', displayName: 'Tata Luis', role: 'member', isOwner: false },
+  ]
   return {
     isDemo: true,
     listFamilies: () => Promise.resolve([FAMILY]),
@@ -38,13 +45,7 @@ export function demoSource(now: () => Date = () => new Date()): DataSource {
         expiresAt: endOfLocalDay(instant, TIMEZONE),
       })
     },
-    listMembers: () =>
-      Promise.resolve([
-        { userId: '1', displayName: 'Abuela Rosa', role: 'admin', isOwner: true },
-        { userId: '2', displayName: 'Pedro', role: 'admin', isOwner: false },
-        { userId: '3', displayName: 'Camila', role: 'member', isOwner: false },
-        { userId: '4', displayName: 'Tata Luis', role: 'member', isOwner: false },
-      ]),
+    listMembers: () => Promise.resolve(members),
     createFamily: () => Promise.resolve(),
     createInvitation: () =>
       Promise.resolve({
@@ -52,6 +53,14 @@ export function demoSource(now: () => Date = () => new Date()): DataSource {
         expiresAt: new Date(now().getTime() + 86_400_000),
       }),
     acceptInvitation: () => Promise.resolve(),
+    removeMember: (_familyId, userId) => {
+      members = members.filter((member) => member.userId !== userId)
+      return Promise.resolve()
+    },
+    setMemberRole: (_familyId, userId, role) => {
+      members = members.map((member) => (member.userId === userId ? { ...member, role } : member))
+      return Promise.resolve()
+    },
   }
 }
 
