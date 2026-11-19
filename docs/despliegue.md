@@ -1,6 +1,6 @@
 # Despliegue
 
-Estado: **nunca se ha desplegado**. Los pasos de esta guía no están verificados contra un proyecto alojado; lo verificado es lo que corre el CI contra un Supabase local. Corrige esta guía la primera vez que se use.
+Estado: el servidor se desplegó el 2026-11-19 con los pasos 1 y 2 de esta guía, salvo las plantillas de correo, que esperan un SMTP propio. Con el servidor desplegado se comprobó desde afuera que las funciones exigen sesión y que la API de datos no entrega tablas. Nadie ha iniciado sesión todavía: falta el correo.
 
 ## 1. Proyecto de Supabase
 
@@ -8,27 +8,33 @@ Lo crea la persona dueña del proyecto con su cuenta. Con el proyecto creado, de
 
 ```bash
 pnpm exec supabase login
-pnpm exec supabase link --project-ref <ref-del-proyecto>
-pnpm exec supabase db push
-pnpm exec supabase secrets set SERVER_SECRET="$(openssl rand -base64 32)"
-pnpm exec supabase functions deploy
+pnpm exec supabase link --project-ref <ref>
+pnpm exec supabase db push --remote --dry-run
+pnpm exec supabase db push --remote
+pnpm exec supabase secrets set SERVER_SECRET="$(openssl rand -base64 32)" --remote=<ref>
+pnpm exec supabase functions deploy --remote
 ```
+
+Cada comando dice a qué proyecto apunta antes de escribir ("Target: project ..."). Si la cuenta tiene más de un proyecto, léelo antes de confirmar.
 
 `SERVER_SECRET` no se guarda en ningún otro lugar. Si se pierde, basta generar otra: los códigos de todas las familias cambian en ese momento (ver `docs/motor-de-codigos.md`).
 
-## 2. Configuración que hay que repetir en el panel
+## 2. Configuración del proyecto
 
-`supabase/config.toml` describe el entorno local. En el proyecto alojado hay que dejar lo mismo:
+`supabase/config.toml` describe el entorno local y trae valores que no deben llegar al proyecto alojado, como poder pedir un correo por segundo. Lo que el proyecto alojado necesita está en `despliegue/supabase/config.toml`, y se sube sin tocar nada más:
 
-| Dónde | Qué |
+```bash
+pnpm exec supabase config diff --remote=<ref> --workdir despliegue
+pnpm exec supabase config push --remote=<ref> --workdir despliegue
+```
+
+| Qué deja | Por qué |
 |---|---|
-| API, esquemas expuestos | Solo `app`. Quitar `public` y `graphql_public`. |
-| Auth, proveedor de correo | Activado, con registro de usuarios permitido. |
-| Auth, código por correo | 6 dígitos, vence en 600 segundos. |
-| Auth, plantillas "Magic Link" y "Confirm signup" | Asunto y contenido de `supabase/templates/codigo.html`. Deben mostrar `{{ .Token }}` y ningún enlace. |
-| Auth, SMTP propio | Obligatorio. El correo incluido en Supabase solo envía a los miembros del equipo del proyecto y tiene un límite muy bajo por hora. |
+| API: solo el esquema `app` expuesto | Sin esto las funciones fallan con `internal_error`, y con `public` expuesto las tablas quedarían a la vista de la API. |
+| Código por correo de 6 dígitos, vence en 600 segundos | Es lo que la aplicación pide escribir. |
+| Plantillas "Magic Link" y "Confirm signup" con `supabase/templates/codigo.html` | La plantilla que trae Supabase manda un enlace y no muestra el código: con ella no se puede entrar. |
 
-Sin el primer punto las funciones fallan con `internal_error`, porque no pueden llamar al esquema `app`.
+**SMTP propio, antes de las plantillas.** En el plan gratis Supabase rechaza el cambio de plantillas mientras el proyecto use su correo incluido (`entitlement_required`, `auth.email_templates`), y rechaza junto con ellas el resto de la configuración de Auth. El SMTP se configura en el panel (Authentication, Emails, SMTP Settings) porque lleva una contraseña. Después se corre el `config push` de arriba.
 
 ## 3. Aplicación web
 
@@ -50,6 +56,9 @@ El sitio necesita HTTPS. Los enlaces de invitación usan la dirección desde la 
 3. Invitar a una segunda persona y comprobar que ve el mismo código.
 4. Con la sesión de esa segunda persona, intentar leer `https://<ref>.supabase.co/rest/v1/families`: debe responder un error.
 
-## Muestra pública
+## Sitios publicados
 
-https://mavericksantander.github.io/Santoysena/ es la aplicación en modo muestra, publicada desde la rama `gh-pages`. No usa ningún servidor.
+Los dos salen de la rama `gh-pages`.
+
+- https://mavericksantander.github.io/Santoysena/ es la aplicación en modo muestra. No usa ningún servidor.
+- https://mavericksantander.github.io/Santoysena/app/ es la aplicación conectada al proyecto alojado, construida con `vite build --base=./` y copiada a la carpeta `app/`.

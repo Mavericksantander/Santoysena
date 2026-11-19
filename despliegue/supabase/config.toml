@@ -1,0 +1,20 @@
+# Lo único que el proyecto alojado necesita distinto de un proyecto recién
+# creado. `supabase config push` deja intacto todo lo que este archivo no
+# declara. El config.toml de la raíz describe el entorno local y trae valores
+# que no deben llegar al proyecto alojado.
+project_id = "santo-y-sena"
+
+[api]
+schemas = ["app"]
+
+[auth.email]
+otp_length = 6
+otp_expiry = 600
+
+[auth.email.template.magic_link]
+subject = "Tu código para entrar a Santo y Seña"
+content_path = "../supabase/templates/codigo.html"
+
+[auth.email.template.confirmation]
+subject = "Tu código para entrar a Santo y Seña"
+content_path = "../supabase/templates/codigo.html"
