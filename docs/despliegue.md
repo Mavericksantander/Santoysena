@@ -1,6 +1,6 @@
 # Despliegue
 
-Estado: el servidor se desplegó el 2026-11-19 con los pasos 1 y 2 de esta guía, salvo las plantillas de correo, que esperan un SMTP propio. Con el servidor desplegado se comprobó desde afuera que las funciones exigen sesión y que la API de datos no entrega tablas. Nadie ha iniciado sesión todavía: falta el correo.
+Estado: el servidor se desplegó el 2026-11-19 con los pasos 1 y 2 de esta guía, con un Gmail como SMTP. Se comprobó desde afuera que las funciones exigen sesión y que la API de datos no entrega tablas. Falta que alguien inicie sesión con un correo real.
 
 ## 1. Proyecto de Supabase
 
@@ -35,6 +35,8 @@ pnpm exec supabase config push --remote=<ref> --workdir despliegue
 | Plantillas "Magic Link" y "Confirm signup" con `supabase/templates/codigo.html` | La plantilla que trae Supabase manda un enlace y no muestra el código: con ella no se puede entrar. |
 
 **SMTP propio, antes de las plantillas.** En el plan gratis Supabase rechaza el cambio de plantillas mientras el proyecto use su correo incluido (`entitlement_required`, `auth.email_templates`), y rechaza junto con ellas el resto de la configuración de Auth. El SMTP se configura en el panel (Authentication, Emails, SMTP Settings) porque lleva una contraseña. Después se corre el `config push` de arriba.
+
+`config push` solo acepta plantillas dentro de su carpeta de trabajo, así que `despliegue/supabase/templates/codigo.html` es una copia de la que prueba el CI. El test `tests/despliegue.test.ts` falla si dejan de ser iguales.
 
 ## 3. Aplicación web
 
