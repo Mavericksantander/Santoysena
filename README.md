@@ -10,12 +10,12 @@ Gratis, sin publicidad, sin venta de datos, de código abierto (AGPL-3.0).
 
 ## Estado
 
-Fase 1 de 6 (base del proyecto). **Todavía no hay autenticación, familias ni generación de códigos.**
+Fase 2 de 6 en curso. Las reglas de familia, invitaciones y roles ya viven en la base. **Todavía no hay Edge Functions, inicio de sesión ni generación de códigos.**
 
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1. Base | Repositorio, React + TypeScript + Vite + Tailwind, esquema de base de datos, CI | Hecha |
-| 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | Pendiente |
+| 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | En curso: reglas en la base hechas; faltan Edge Functions e inicio de sesión |
 | 3. Motor de códigos | Lista de palabras, HMAC-SHA256, rotación a medianoche | Pendiente |
 | 4. Frontend | Panel, familia, instrucciones, PWA | Pendiente |
 | 5. Endurecimiento | Rate limiting, revisión de RLS, auditoría | Pendiente |
@@ -52,7 +52,8 @@ pnpm build
 src/                  Frontend (React)
 supabase/migrations/  Esquema de la base. Todo cambio de esquema es una migración nueva.
 supabase/functions/   Edge Functions (desde la fase 2)
-tests/db/             Tests del esquema sobre Postgres en memoria (PGlite)
+tests/db/             Tests del esquema y de las reglas (PGlite local, Supabase real en CI)
+docs/estados.md       Statecharts de invitación y membresía con sus invariantes
 ```
 
 ## Decisiones de arquitectura
@@ -62,7 +63,8 @@ tests/db/             Tests del esquema sobre Postgres en memoria (PGlite)
 3. **`code_epoch` por familia.** Expulsar a alguien no sirve si el código de hoy sigue vigente hasta medianoche. Incrementar `code_epoch` cambia el código de inmediato.
 4. **Las reglas viven en la base.** Rol válido, membresía única, zona horaria IANA válida y formato del hash de invitación son constraints de Postgres, no validaciones del cliente.
 5. **Invitaciones sin token en claro.** Solo se guarda el SHA-256 del token; el constraint de formato rechaza cualquier otra cosa.
-6. **Tests del esquema en PGlite.** Aplican las migraciones reales sobre Postgres en memoria con un stub mínimo de Supabase (`tests/db/supabase-stub.sql`), sin Docker. El CI además aplica las migraciones en Supabase local.
+6. **La misma suite corre en dos bases.** En local aplica las migraciones reales sobre Postgres en memoria (PGlite) con un stub mínimo de Supabase, sin Docker. En CI corre contra Supabase local con `TEST_DATABASE_URL`, para que el stub no pueda esconder una diferencia.
+7. **La autorización vive en funciones SQL del esquema `app`.** Reciben al actor de forma explícita y solo `service_role` puede ejecutarlas. Las Edge Functions autentican y delegan. Los estados válidos están en [docs/estados.md](docs/estados.md).
 
 ## Secretos
 
