@@ -15,6 +15,7 @@ const FUNCTIONS = [
   'list-family-members',
   'remove-family-member',
   'set-member-role',
+  'get-family-code',
 ]
 
 async function familyOf(owner: { token: string }): Promise<string> {
@@ -188,5 +189,59 @@ describe('inicio de sesión con código por correo', () => {
     const code = await emailCodeFor(rosa.email)
     const wrong = code === '000000' ? '000001' : '000000'
     expect((await sessionFromEmailCode(rosa.email, wrong)).status).toBeGreaterThanOrEqual(400)
+  })
+})
+
+describe('código diario', () => {
+  test('los miembros ven el mismo código, un extraño ninguno, y expulsar lo cambia al instante', async () => {
+    const [rosa, camila, intruso] = await Promise.all([
+      newPerson('Rosa'),
+      newPerson('Camila'),
+      newPerson('Intruso'),
+    ])
+    const familyId = await familyOf(rosa)
+    const token = await invitationFor(rosa, familyId)
+    await callFunction('accept-invitation', { token }, camila.token)
+
+    const forRosa = await callFunction('get-family-code', { family_id: familyId }, rosa.token)
+    const forCamila = await callFunction('get-family-code', { family_id: familyId }, camila.token)
+    expect(forRosa.status).toBe(200)
+    expect(forCamila).toEqual(forRosa)
+    expect(forRosa.body).toMatchObject({
+      family_id: familyId,
+      timezone: 'America/Santiago',
+      date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      word_one: expect.stringMatching(/^[A-ZÑÁÉÍÓÚÜ]{4,10}$/),
+      word_two: expect.stringMatching(/^[A-ZÑÁÉÍÓÚÜ]{4,10}$/),
+    })
+    const expiresAt = new Date(forRosa.body.expires_at as string).getTime()
+    expect(expiresAt).toBeGreaterThan(Date.now())
+    expect(expiresAt - Date.now()).toBeLessThanOrEqual(25 * 3_600_000)
+
+    expect(await callFunction('get-family-code', { family_id: familyId }, intruso.token)).toEqual({
+      status: 403,
+      body: { code: 'not_a_member' },
+    })
+
+    await callFunction('remove-family-member', { family_id: familyId, user_id: camila.id }, rosa.token)
+    expect(await callFunction('get-family-code', { family_id: familyId }, camila.token)).toEqual({
+      status: 403,
+      body: { code: 'not_a_member' },
+    })
+    const afterRemoval = await callFunction('get-family-code', { family_id: familyId }, rosa.token)
+    expect(afterRemoval.status).toBe(200)
+    expect([afterRemoval.body.word_one, afterRemoval.body.word_two]).not.toEqual([
+      forRosa.body.word_one,
+      forRosa.body.word_two,
+    ])
+  })
+
+  test('dos familias distintas tienen códigos distintos el mismo día', async () => {
+    const rosa = await newPerson('Rosa')
+    const [first, second] = await Promise.all([familyOf(rosa), familyOf(rosa)])
+    const a = await callFunction('get-family-code', { family_id: first }, rosa.token)
+    const b = await callFunction('get-family-code', { family_id: second }, rosa.token)
+    expect([a.status, b.status]).toEqual([200, 200])
+    expect([a.body.word_one, a.body.word_two]).not.toEqual([b.body.word_one, b.body.word_two])
   })
 })

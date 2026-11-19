@@ -1,6 +1,7 @@
 // Las operaciones del producto. Cada una declara qué entrada acepta y qué
 // función de la base ejecuta. La autorización no está aquí: la decide la base.
 
+import { dailyCode } from './daily-code.ts'
 import { invitationInvalid } from './errors.ts'
 import type { Operation } from './handle.ts'
 import {
@@ -20,6 +21,7 @@ import {
   newInvitationToken,
   parseInvitationToken,
 } from './invitation-token.ts'
+import { endOfLocalDay, formatWithOffset, localDateAt } from './local-day.ts'
 
 export const createFamily: Operation<{ name: Name; timezone: string | undefined }> = {
   parse: (body) => ({
@@ -100,3 +102,46 @@ export const setMemberRole: Operation<{ familyId: Uuid; target: Uuid; role: Role
     return {}
   },
 }
+
+/** Lo único que get-family-code toma del entorno. No hay otra fuente de hora ni de llave. */
+export interface CodeDependencies {
+  /** Reloj del servidor. La petición no puede influir en la fecha. */
+  now(): Date
+  serverSecret(): Promise<CryptoKey>
+}
+
+function codeContext(rows: unknown): { timezone: string; epoch: number } {
+  const row: unknown = Array.isArray(rows) && rows.length === 1 ? rows[0] : null
+  if (typeof row === 'object' && row !== null) {
+    const { timezone, code_epoch: epoch } = row as Record<string, unknown>
+    if (typeof timezone === 'string' && typeof epoch === 'number') return { timezone, epoch }
+  }
+  throw new Error('unexpected_code_context')
+}
+
+// La membresía se comprueba primero, en la base. Solo después se lee la llave.
+export const getFamilyCode = (deps: CodeDependencies): Operation<{ familyId: Uuid }> => ({
+  parse: (body) => ({ familyId: parseUuid(body.family_id, 'family_id') }),
+  run: async (call, actor, { familyId }) => {
+    const { timezone, epoch } = codeContext(
+      await call('family_code_context', { p_actor: actor, p_family_id: familyId }),
+    )
+    const now = deps.now()
+    const date = localDateAt(now, timezone)
+    const [wordOne, wordTwo] = await dailyCode({
+      key: await deps.serverSecret(),
+      familyId,
+      date,
+      epoch,
+      wordCount: 2,
+    })
+    return {
+      family_id: familyId,
+      date,
+      timezone,
+      word_one: wordOne,
+      word_two: wordTwo,
+      expires_at: formatWithOffset(endOfLocalDay(now, timezone), timezone),
+    }
+  },
+})

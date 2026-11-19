@@ -26,6 +26,7 @@ export interface AppFunctions {
   list_family_members: { p_actor: Uuid; p_family_id: Uuid }
   remove_family_member: { p_actor: Uuid; p_family_id: Uuid; p_target: Uuid }
   set_member_role: { p_actor: Uuid; p_family_id: Uuid; p_target: Uuid; p_role: Role }
+  family_code_context: { p_actor: Uuid; p_family_id: Uuid }
 }
 
 export type Rpc = <F extends keyof AppFunctions>(

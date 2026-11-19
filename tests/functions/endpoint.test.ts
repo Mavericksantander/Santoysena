@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import acceptInvitation from '../../supabase/functions/accept-invitation/index.ts'
 import createFamily from '../../supabase/functions/create-family/index.ts'
+import getFamilyCode from '../../supabase/functions/get-family-code/index.ts'
 import createInvitation from '../../supabase/functions/create-invitation/index.ts'
 import listFamilyMembers from '../../supabase/functions/list-family-members/index.ts'
 import removeFamilyMember from '../../supabase/functions/remove-family-member/index.ts'
@@ -17,6 +18,7 @@ const FUNCTIONS = {
   'list-family-members': listFamilyMembers,
   'remove-family-member': removeFamilyMember,
   'set-member-role': setMemberRole,
+  'get-family-code': getFamilyCode,
 }
 
 const USER = '11111111-1111-4111-8111-111111111111'
@@ -87,7 +89,10 @@ beforeAll(async () => {
         body: raw ? JSON.parse(raw) : null,
       })
       response.writeHead(200, { 'content-type': 'application/json' })
-      response.end(JSON.stringify(FAMILY))
+      const isCodeContext = request.url === '/rest/v1/rpc/family_code_context'
+      response.end(
+        JSON.stringify(isCodeContext ? [{ timezone: 'America/Santiago', code_epoch: 0 }] : FAMILY),
+      )
     })
   })
   await new Promise<void>((resolve) => dataApi.listen(0, '127.0.0.1', resolve))
@@ -95,6 +100,7 @@ beforeAll(async () => {
   process.env.SUPABASE_URL = `http://127.0.0.1:${(dataApi.address() as AddressInfo).port}`
   process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_solo_para_este_test'
   process.env.SUPABASE_SECRET_KEY = SECRET_KEY
+  process.env.SERVER_SECRET = Buffer.alloc(32, 9).toString('base64')
   process.env.SUPABASE_JWKS = JSON.stringify({
     keys: [{ ...jwk, kid: 'test-key', alg: 'ES256', use: 'sig' }],
   })
@@ -177,5 +183,31 @@ describe('con una sesión válida', () => {
     const response = await call('list-family-members', { family_id: 'x' }, await sessionToken(signingKey))
     expect(response.status).toBe(400)
     expect(received).toEqual([])
+  })
+})
+
+describe('get-family-code con una sesión válida', () => {
+  test('pide el contexto a nombre del usuario de la sesión y entrega dos palabras', async () => {
+    const response = await call('get-family-code', { family_id: FAMILY }, await sessionToken(signingKey))
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as Record<string, string>
+    expect(body.word_one).toMatch(/^[A-ZÑÁÉÍÓÚÜ]{4,10}$/)
+    expect(body.word_two).toMatch(/^[A-ZÑÁÉÍÓÚÜ]{4,10}$/)
+    expect(body.timezone).toBe('America/Santiago')
+    expect(received.map((request) => [request.url, request.body])).toEqual([
+      ['/rest/v1/rpc/family_code_context', { p_actor: USER, p_family_id: FAMILY }],
+    ])
+  })
+
+  test('si al servidor le falta SERVER_SECRET responde error interno, sin palabras', async () => {
+    const saved = process.env.SERVER_SECRET
+    delete process.env.SERVER_SECRET
+    try {
+      const response = await call('get-family-code', { family_id: FAMILY }, await sessionToken(signingKey))
+      expect(response.status).toBe(500)
+      expect(await response.json()).toEqual({ code: 'internal_error' })
+    } finally {
+      process.env.SERVER_SECRET = saved
+    }
   })
 })

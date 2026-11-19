@@ -10,13 +10,13 @@ Gratis, sin publicidad, sin venta de datos, de código abierto (AGPL-3.0).
 
 ## Estado
 
-Fase 2 de 6 hecha en el servidor: reglas de familia en la base, Edge Functions e inicio de sesión con código por correo. **Todavía no hay generación de códigos ni interfaz.**
+Fases 1 a 3 hechas en el servidor: familias, invitaciones, roles, inicio de sesión y el generador del código diario. **Todavía no hay interfaz**, y la lista de palabras espera la revisión de una persona.
 
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1. Base | Repositorio, React + TypeScript + Vite + Tailwind, esquema de base de datos, CI | Hecha |
 | 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | Hecha en el servidor; la interfaz va en la fase 4 |
-| 3. Motor de códigos | Lista de palabras, HMAC-SHA256, rotación a medianoche | Pendiente |
+| 3. Motor de códigos | Lista de palabras, HMAC-SHA256, rotación a medianoche | Hecha; falta revisión humana de la lista |
 | 4. Frontend | Panel, familia, instrucciones, PWA | Pendiente |
 | 5. Endurecimiento | Rate limiting, revisión de RLS, auditoría | Pendiente |
 | 6. Publicación | Documentación, política de privacidad, despliegue | Pendiente |
@@ -29,7 +29,7 @@ Fase 2 de 6 hecha en el servidor: reglas de familia en la base, Edge Functions e
 
 ## Desarrollo
 
-Requisitos: Node 22 o superior y pnpm 10. Para levantar Supabase local se necesita además Docker.
+Requisitos: Node 22 o superior y pnpm 10. Para levantar Supabase local se necesita además Docker y una llave de desarrollo: `export SERVER_SECRET="$(openssl rand -base64 32)"`.
 
 ```bash
 pnpm install
@@ -61,6 +61,8 @@ tests/db/             Tests del esquema y de las reglas (PGlite local, Supabase 
 tests/functions/      Tests de las Edge Functions, con sesiones firmadas localmente
 tests/integration/    Tests contra un Supabase local completo (CI)
 docs/api.md           Funciones, entradas y códigos de error
+docs/motor-de-codigos.md   Algoritmo, vencimiento y rotación de la llave
+docs/lista-de-palabras.md  Criterios y fuentes de las 4.096 palabras
 docs/estados.md       Statecharts de invitación y membresía con sus invariantes
 ```
 

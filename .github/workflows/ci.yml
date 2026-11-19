@@ -45,6 +45,8 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Generar una llave del generador de códigos solo para este run
+        run: echo "SERVER_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
       - name: Levantar Supabase y aplicar migraciones
         run: pnpm exec supabase start
       - name: Lint del esquema

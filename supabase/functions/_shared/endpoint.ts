@@ -13,3 +13,14 @@ export function endpoint<Input>(operation: Operation<Input>) {
     }),
   }
 }
+
+type Runtime = {
+  Deno?: { env: { get(name: string): string | undefined } }
+  process?: { env: Record<string, string | undefined> }
+}
+
+/** Variable de entorno del servidor, en Deno (Edge Functions) o en Node (tests). */
+export function serverEnv(name: string): string | undefined {
+  const runtime = globalThis as Runtime
+  return runtime.Deno ? runtime.Deno.env.get(name) : runtime.process?.env[name]
+}

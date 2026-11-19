@@ -1,6 +1,8 @@
 // Validación de entradas. Cada parser devuelve un tipo que solo se puede
 // obtener pasando por él, así un valor sin validar no llega a la base.
 
+import { isSupportedTimezone } from './local-day.ts'
+
 export class InvalidInput extends Error {
   readonly field: string
   constructor(field: string) {
@@ -33,10 +35,10 @@ export function parseName(value: unknown, field: string): Name {
   return trimmed as Name
 }
 
-/** La base decide si la zona existe; aquí solo se acota la forma. */
+/** Solo zonas que el generador de códigos sabe convertir a fecha local. La base además exige que sea IANA. */
 export function parseOptionalTimezone(value: unknown, field: string): string | undefined {
   if (value === undefined) return undefined
-  if (typeof value !== 'string' || value.length < 1 || value.length > 64) {
+  if (typeof value !== 'string' || value.length > 64 || !isSupportedTimezone(value)) {
     throw new InvalidInput(field)
   }
   return value

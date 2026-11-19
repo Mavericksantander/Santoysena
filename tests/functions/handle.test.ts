@@ -1,15 +1,20 @@
 import { createHash } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { dailyCode, importServerSecret } from '../../supabase/functions/_shared/daily-code.ts'
 import type { DatabaseError } from '../../supabase/functions/_shared/errors.ts'
 import { handle, type Operation, type Rpc } from '../../supabase/functions/_shared/handle.ts'
 import {
   acceptInvitation,
   createFamily,
   createInvitation,
+  getFamilyCode,
   listFamilyMembers,
   removeFamilyMember,
   setMemberRole,
 } from '../../supabase/functions/_shared/operations.ts'
+import { parseUuid } from '../../supabase/functions/_shared/input.ts'
+import { parseLocalDate } from '../../supabase/functions/_shared/local-day.ts'
+import { WORDLIST_ES_V1 } from '../../supabase/functions/_shared/wordlist-es-v1.ts'
 
 const ACTOR = '11111111-1111-4111-8111-111111111111'
 const FAMILY = '22222222-2222-4222-8222-222222222222'
@@ -230,6 +235,139 @@ describe('set-member-role', () => {
     })
     expect(status).toBe(400)
     expect(body).toEqual({ code: 'invalid_input', field: 'role' })
+    expect(calls).toEqual([])
+  })
+})
+
+describe('get-family-code', () => {
+  const SECRET = Buffer.alloc(32, 7).toString('base64')
+  const NOON = new Date('2026-11-18T15:00:00Z')
+  const santiago = (epoch = 0) => fakeRpc({ data: [{ timezone: 'America/Santiago', code_epoch: epoch }] })
+
+  function operation(now: Date = NOON, secret: string | undefined = SECRET) {
+    const serverSecret = vi.fn(() => importServerSecret(secret))
+    return { op: getFamilyCode({ now: () => now, serverSecret }), serverSecret }
+  }
+
+  test('entrega el código de hoy con la forma acordada', async () => {
+    const { status, body, calls } = await run(operation().op, { family_id: FAMILY }, santiago())
+    const expected = await dailyCode({
+      key: await importServerSecret(SECRET),
+      familyId: parseUuid(FAMILY, 'family'),
+      date: parseLocalDate('2026-11-18'),
+      epoch: 0,
+      wordCount: 2,
+    })
+    expect(status).toBe(200)
+    expect(body).toEqual({
+      family_id: FAMILY,
+      date: '2026-11-18',
+      timezone: 'America/Santiago',
+      word_one: expected[0],
+      word_two: expected[1],
+      expires_at: '2026-11-19T00:00:00-03:00',
+    })
+    expect(WORDLIST_ES_V1).toContain(body.word_one)
+    expect(calls).toEqual([{ fn: 'family_code_context', args: { p_actor: ACTOR, p_family_id: FAMILY } }])
+  })
+
+  test('todos los miembros de la familia ven el mismo código', async () => {
+    const forRosa = await run(operation().op, { family_id: FAMILY }, santiago(), ACTOR)
+    const forCamila = await run(operation().op, { family_id: FAMILY }, santiago(), TARGET)
+    expect(forCamila.body).toEqual(forRosa.body)
+    expect(forCamila.calls[0]!.args.p_actor).toBe(TARGET)
+  })
+
+  test('el reloj y la fecha que mande el cliente no cambian nada', async () => {
+    const honest = await run(operation().op, { family_id: FAMILY }, santiago())
+    const db = santiago()
+    const request = new Request('http://local/', {
+      method: 'POST',
+      headers: { date: 'Tue, 01 Jan 2030 00:00:00 GMT', 'x-client-time': '2030-01-01T00:00:00Z' },
+      body: JSON.stringify({
+        family_id: FAMILY,
+        date: '2030-01-01',
+        now: '2030-01-01T00:00:00Z',
+        timezone: 'Asia/Tokyo',
+        epoch: 99,
+        code_epoch: 99,
+      }),
+    })
+    const response = await handle(operation().op, request, ACTOR, db.rpc)
+    expect(await response.json()).toEqual(honest.body)
+  })
+
+  test('durante todo el día local el código es el mismo', async () => {
+    const start = await run(operation(new Date('2026-11-18T03:00:00.000Z')).op, { family_id: FAMILY }, santiago())
+    const end = await run(operation(new Date('2026-11-19T02:59:59.999Z')).op, { family_id: FAMILY }, santiago())
+    expect(end.body).toEqual(start.body)
+  })
+
+  test('a la medianoche de la familia el código cambia y el anterior deja de entregarse', async () => {
+    const before = await run(operation(new Date('2026-11-19T02:59:59.999Z')).op, { family_id: FAMILY }, santiago())
+    const after = await run(operation(new Date('2026-11-19T03:00:00.000Z')).op, { family_id: FAMILY }, santiago())
+    expect(before.body.date).toBe('2026-11-18')
+    expect(after.body.date).toBe('2026-11-19')
+    expect(after.body.expires_at).toBe('2026-11-20T00:00:00-03:00')
+    expect([after.body.word_one, after.body.word_two]).not.toEqual([before.body.word_one, before.body.word_two])
+  })
+
+  test('la fecha es la de la zona de la familia, no la del servidor ni la de quien mira', async () => {
+    const tokyo = fakeRpc({ data: [{ timezone: 'Asia/Tokyo', code_epoch: 0 }] })
+    const { body } = await run(operation(new Date('2026-11-18T16:00:00Z')).op, { family_id: FAMILY }, tokyo)
+    expect(body).toMatchObject({ date: '2026-11-19', timezone: 'Asia/Tokyo', expires_at: '2026-11-20T00:00:00+09:00' })
+  })
+
+  test('el día en que parte el horario de verano, el vencimiento es a la 01:00', async () => {
+    const { body } = await run(operation(new Date('2027-09-04T15:00:00Z')).op, { family_id: FAMILY }, santiago())
+    expect(body).toMatchObject({ date: '2027-09-04', expires_at: '2027-09-05T01:00:00-03:00' })
+  })
+
+  test('cuando sube code_epoch, el código de hoy es otro', async () => {
+    const before = await run(operation().op, { family_id: FAMILY }, santiago(0))
+    const after = await run(operation().op, { family_id: FAMILY }, santiago(1))
+    expect(after.body.date).toBe(before.body.date)
+    expect([after.body.word_one, after.body.word_two]).not.toEqual([before.body.word_one, before.body.word_two])
+  })
+
+  test('quien no es miembro no recibe palabras, y la llave ni siquiera se lee', async () => {
+    const { op, serverSecret } = operation()
+    const denied = fakeRpc({ error: { code: 'P0001', message: 'not_a_member' } })
+    const { status, body } = await run(op, { family_id: FAMILY }, denied)
+    expect(status).toBe(403)
+    expect(body).toEqual({ code: 'not_a_member' })
+    expect(serverSecret).not.toHaveBeenCalled()
+  })
+
+  test.each(['', 'no-es-base64!', Buffer.alloc(16, 1).toString('base64')])(
+    'sin una llave válida en el servidor (%j) responde error interno y ninguna palabra',
+    async (secret) => {
+      const { status, body } = await run(operation(NOON, secret).op, { family_id: FAMILY }, santiago())
+      expect(status).toBe(500)
+      expect(body).toEqual({ code: 'internal_error' })
+    },
+  )
+
+  test.each([
+    [[]],
+    [null],
+    [[{ timezone: 'America/Santiago' }]],
+    [[{ timezone: 7, code_epoch: 0 }]],
+    [[{ timezone: 'America/Santiago', code_epoch: 0 }, { timezone: 'Asia/Tokyo', code_epoch: 5 }]],
+  ])(
+    'si la base responde algo inesperado (%j) no se genera ningún código',
+    async (data) => {
+      const { op, serverSecret } = operation()
+      const { status, body } = await run(op, { family_id: FAMILY }, fakeRpc({ data }))
+      expect(status).toBe(500)
+      expect(body).toEqual({ code: 'internal_error' })
+      expect(serverSecret).not.toHaveBeenCalled()
+    },
+  )
+
+  test('sin family_id válido no se consulta la base', async () => {
+    const { status, calls } = await run(operation().op, { family_id: 'x' }, santiago())
+    expect(status).toBe(400)
     expect(calls).toEqual([])
   })
 })
