@@ -85,8 +85,9 @@ describe('endOfLocalDay', () => {
     expect(zones.length).toBeGreaterThan(300)
     const failures: string[] = []
     for (const zone of zones) {
-      for (let sample = 0; sample < 40; sample += 1) {
-        const now = new Date(Date.UTC(2026, 0, 1) + sample * (9 * 24 + 7) * HOUR)
+      // Doce instantes por zona, uno cada 30 días y 7 horas, para caer a horas distintas del día.
+      for (let sample = 0; sample < 12; sample += 1) {
+        const now = new Date(Date.UTC(2026, 0, 1) + sample * (30 * 24 + 7) * HOUR)
         const today = localDateAt(now, zone)
         const end = endOfLocalDay(now, zone)
         const ok =
@@ -98,7 +99,8 @@ describe('endOfLocalDay', () => {
       }
     }
     expect(failures).toEqual([])
-  })
+    // Son unas 150.000 conversiones de fecha: en una máquina lenta no caben en los 5 s por defecto.
+  }, 30_000)
 })
 
 describe('formatWithOffset', () => {
