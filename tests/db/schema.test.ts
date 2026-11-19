@@ -1,12 +1,22 @@
-import type { PGlite } from '@electric-sql/pglite'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'vitest'
-import { createFamily, createProfile, migratedDatabase } from './database.ts'
+import { createUser, type Db, migratedDatabase } from './database.ts'
 
 const TABLES = ['profiles', 'families', 'family_members', 'family_invitations']
 const CLIENT_ROLES = ['anon', 'authenticated']
 const HASH = 'a'.repeat(64)
 
-let db: PGlite
+let db: Db
+
+const createProfile = (db: Db) => createUser(db, 'Abuela Rosa')
+
+/** Inserta la fila sin pasar por app.create_family: estos tests miran solo el esquema. */
+async function createFamily(db: Db, ownerId: string): Promise<string> {
+  const family = await db.query<{ id: string }>(
+    "insert into public.families (name, owner_id) values ('Familia Pérez', $1) returning id",
+    [ownerId],
+  )
+  return family.rows[0]!.id
+}
 
 beforeAll(async () => {
   db = await migratedDatabase()
@@ -48,6 +58,8 @@ describe('acceso del cliente', () => {
   })
 
   test('una tabla creada después nace sin privilegios para el cliente', async () => {
+    // Las migraciones corren como postgres; sus privilegios por defecto son los que importan.
+    await db.exec('set local role postgres')
     await db.exec('create table public.tabla_futura (id integer)')
     const grants = await db.query(
       `select grantee from information_schema.role_table_grants
