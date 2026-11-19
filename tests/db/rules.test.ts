@@ -491,3 +491,33 @@ describe('contexto del código diario', () => {
     expect(await context(owner, family)).toEqual([{ timezone: 'America/Santiago', code_epoch: 1 }])
   })
 })
+
+describe('listar mis familias', () => {
+  const families = async (actor: string) =>
+    (await db.query<{ id: string; name: string; role: string }>('select * from app.list_families($1)', [actor])).rows
+
+  test('cada persona ve solo sus familias, con su rol en cada una', async () => {
+    const { owner, member, family } = await familyOfThree()
+    const island = await one<string>("app.create_family($1, 'Familia Pakarati')", [member])
+    expect(await families(owner)).toEqual([{ id: family, name: 'Familia Pérez', role: 'admin' }])
+    // Las dos membresías nacen en el mismo instante de esta transacción, así que su orden no está definido.
+    const mine = await families(member)
+    expect(mine).toHaveLength(2)
+    expect(mine).toContainEqual({ id: family, name: 'Familia Pérez', role: 'member' })
+    expect(mine).toContainEqual({ id: island, name: 'Familia Pakarati', role: 'admin' })
+  })
+
+  test('quien no pertenece a ninguna recibe una lista vacía', async () => {
+    await familyOfThree()
+    await db.exec('reset role')
+    const stranger = await createUser(db)
+    await actAsService()
+    expect(await families(stranger)).toEqual([])
+  })
+
+  test('una familia desaparece de la lista de quien fue expulsado', async () => {
+    const { owner, member, family } = await familyOfThree()
+    await remove(owner, family, member)
+    expect(await families(member)).toEqual([])
+  })
+})

@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net'
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
 import acceptInvitation from '../../supabase/functions/accept-invitation/index.ts'
 import createFamily from '../../supabase/functions/create-family/index.ts'
+import listFamilies from '../../supabase/functions/list-families/index.ts'
 import getFamilyCode from '../../supabase/functions/get-family-code/index.ts'
 import createInvitation from '../../supabase/functions/create-invitation/index.ts'
 import listFamilyMembers from '../../supabase/functions/list-family-members/index.ts'
@@ -19,6 +20,7 @@ const FUNCTIONS = {
   'remove-family-member': removeFamilyMember,
   'set-member-role': setMemberRole,
   'get-family-code': getFamilyCode,
+  'list-families': listFamilies,
 }
 
 const USER = '11111111-1111-4111-8111-111111111111'

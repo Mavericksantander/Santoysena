@@ -68,3 +68,58 @@ export function LoadError({ what, onRetry }: { what: string; onRetry(): void }) 
     </div>
   )
 }
+
+const fieldClass =
+  'min-h-16 w-full rounded-2xl border-2 border-neutral-950 bg-white px-4 text-2xl text-neutral-950 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:border-white dark:bg-neutral-900 dark:text-white dark:focus-visible:outline-yellow-300'
+
+export function Field({
+  label,
+  value,
+  onChange,
+  ...input
+}: {
+  label: string
+  value: string
+  onChange(value: string): void
+} & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'className'>) {
+  return (
+    <label className="flex flex-col gap-2 text-xl font-semibold">
+      {label}
+      <input {...input} value={value} onChange={(event) => onChange(event.target.value)} className={fieldClass} />
+    </label>
+  )
+}
+
+export function BigButton({
+  children,
+  busy,
+  quiet,
+  ...button
+}: {
+  children: ReactNode
+  busy?: boolean
+  /** Botón secundario: con borde en vez de relleno. */
+  quiet?: boolean
+} & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'className' | 'disabled'>) {
+  const look = quiet
+    ? 'border-2 border-neutral-950 dark:border-white'
+    : 'bg-neutral-950 text-white dark:bg-white dark:text-neutral-950'
+  return (
+    <button
+      type="button"
+      {...button}
+      disabled={busy}
+      className={`min-h-16 w-full rounded-2xl px-4 text-xl font-bold tracking-wide focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:opacity-60 dark:focus-visible:outline-yellow-300 ${look}`}
+    >
+      {busy ? 'Un momento…' : children}
+    </button>
+  )
+}
+
+export function Problem({ children }: { children: ReactNode }) {
+  return (
+    <p role="alert" className="rounded-2xl border-2 border-red-700 p-4 text-xl font-semibold dark:border-red-400">
+      {children}
+    </p>
+  )
+}

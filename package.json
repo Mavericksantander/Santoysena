@@ -13,16 +13,18 @@
     "preview": "vite preview",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "check:functions": "deno check supabase/functions/*/index.ts && deno lint supabase/functions",
-    "check:bundle": "node scripts/check-bundle.mjs"
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.16",
+    "@playwright/test": "^1.65.1",
     "@supabase/server": "^1.9.2",
-    "@supabase/supabase-js": "^2.119.1",
     "@tailwindcss/vite": "^4.3.5",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",

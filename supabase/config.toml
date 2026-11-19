@@ -487,3 +487,9 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/deno.json"
 entrypoint = "./functions/get-family-code/index.ts"
+
+[functions.list-families]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deno.json"
+entrypoint = "./functions/list-families/index.ts"

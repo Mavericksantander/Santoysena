@@ -17,7 +17,7 @@ Fases 1 a 3 hechas en el servidor: familias, invitaciones, roles, inicio de sesi
 | 1. Base | Repositorio, React + TypeScript + Vite + Tailwind, esquema de base de datos, CI | Hecha |
 | 2. Autenticación y familias | Código por correo, familias, invitaciones, roles, RLS | Hecha en el servidor; la interfaz va en la fase 4 |
 | 3. Motor de códigos | Lista de palabras, HMAC-SHA256, rotación a medianoche | Hecha; falta revisión humana de la lista |
-| 4. Frontend | Panel, familia, instrucciones, PWA | En curso: las tres pantallas corren en modo muestra; falta conectarlas al servidor |
+| 4. Frontend | Panel, familia, instrucciones, PWA | En curso: ingreso con código, código del día, familia e invitaciones conectados al servidor. Faltan sacar miembros y cambiar roles desde la app, service worker y notificaciones |
 | 5. Endurecimiento | Rate limiting, revisión de RLS, auditoría | Pendiente |
 | 6. Publicación | Documentación, política de privacidad, despliegue | Pendiente |
 
@@ -36,7 +36,7 @@ pnpm install
 pnpm dev
 ```
 
-Hoy la aplicación solo corre en **modo muestra**: usa datos de ejemplo y lo avisa en una franja amarilla en todas las pantallas. Para verla en un teléfono de la misma red wifi: `pnpm dev --host` y abrir la dirección de red que imprime.
+Sin `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` la aplicación corre en **modo muestra**: usa datos de ejemplo y lo avisa en una franja amarilla en todas las pantallas. Con ellas usa el servidor (ver [docs/despliegue.md](docs/despliegue.md)). Para verla en un teléfono de la misma red wifi: `pnpm dev --host` y abrir la dirección de red que imprime.
 
 La muestra publicada está en https://mavericksantander.github.io/Santoysena/ (rama `gh-pages`). Para actualizarla: `pnpm build --base=/Santoysena/` y subir el contenido de `dist/` a esa rama.
 
@@ -52,7 +52,7 @@ pnpm build
 pnpm check:bundle
 ```
 
-Los tests de integración (`pnpm test:integration`) necesitan `supabase start` y las variables de `supabase status -o env`. El CI los corre en cada PR.
+Los tests de integración (`pnpm test:integration`) y la prueba de punta a punta (`pnpm test:e2e`) necesitan `supabase start` y las variables de `supabase status -o env`. El CI los corre en cada PR.
 
 ## Estructura
 
@@ -64,6 +64,8 @@ supabase/templates/   Correo con el código de inicio de sesión
 tests/db/             Tests del esquema y de las reglas (PGlite local, Supabase real en CI)
 tests/functions/      Tests de las Edge Functions, con sesiones firmadas localmente
 tests/integration/    Tests contra un Supabase local completo (CI)
+e2e/                  Prueba de punta a punta en navegador, con el correo real del buzón de pruebas (CI)
+docs/despliegue.md    Cómo llevarlo a un proyecto de Supabase alojado
 docs/api.md           Funciones, entradas y códigos de error
 docs/motor-de-codigos.md   Algoritmo, vencimiento y rotación de la llave
 docs/lista-de-palabras.md  Criterios y fuentes de las 4.096 palabras

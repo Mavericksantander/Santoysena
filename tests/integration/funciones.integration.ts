@@ -16,6 +16,7 @@ const FUNCTIONS = [
   'remove-family-member',
   'set-member-role',
   'get-family-code',
+  'list-families',
 ]
 
 async function familyOf(owner: { token: string }): Promise<string> {
@@ -243,5 +244,31 @@ describe('código diario', () => {
     const b = await callFunction('get-family-code', { family_id: second }, rosa.token)
     expect([a.status, b.status]).toEqual([200, 200])
     expect([a.body.word_one, a.body.word_two]).not.toEqual([b.body.word_one, b.body.word_two])
+  })
+})
+
+describe('mis familias', () => {
+  test('cada persona ve solo las suyas, con su rol', async () => {
+    const [rosa, camila, intruso] = await Promise.all([
+      newPerson('Rosa'),
+      newPerson('Camila'),
+      newPerson('Intruso'),
+    ])
+    const familyId = await familyOf(rosa)
+    const token = await invitationFor(rosa, familyId)
+    await callFunction('accept-invitation', { token }, camila.token)
+
+    expect(await callFunction('list-families', {}, rosa.token)).toEqual({
+      status: 200,
+      body: { families: [{ id: familyId, name: 'Familia Pérez', role: 'admin' }] },
+    })
+    expect(await callFunction('list-families', {}, camila.token)).toEqual({
+      status: 200,
+      body: { families: [{ id: familyId, name: 'Familia Pérez', role: 'member' }] },
+    })
+    expect(await callFunction('list-families', {}, intruso.token)).toEqual({
+      status: 200,
+      body: { families: [] },
+    })
   })
 })

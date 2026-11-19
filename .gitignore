@@ -31,3 +31,6 @@ dist-ssr
 # Supabase local
 supabase/.branches
 supabase/.temp
+
+# Resultados de la prueba de punta a punta
+e2e-resultados

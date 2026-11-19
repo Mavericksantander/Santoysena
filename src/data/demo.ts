@@ -3,6 +3,7 @@
 // solo para mostrar cómo se ve la aplicación.
 
 import { endOfLocalDay, localDateAt } from '../../supabase/functions/_shared/local-day.ts'
+import type { Auth } from '../auth/auth.ts'
 import type { DataSource } from './source.ts'
 
 const TIMEZONE = 'America/Santiago'
@@ -17,7 +18,7 @@ const SAMPLE_CODES = [
   ['CHUCAO', 'LINTERNA'],
 ] as const
 
-const FAMILY = { id: 'muestra', name: 'Familia Pérez Soto' }
+const FAMILY = { id: 'muestra', name: 'Familia Pérez Soto', role: 'admin' as const }
 
 export function demoSource(now: () => Date = () => new Date()): DataSource {
   return {
@@ -44,5 +45,23 @@ export function demoSource(now: () => Date = () => new Date()): DataSource {
         { userId: '3', displayName: 'Camila', role: 'member', isOwner: false },
         { userId: '4', displayName: 'Tata Luis', role: 'member', isOwner: false },
       ]),
+    createFamily: () => Promise.resolve(),
+    createInvitation: () =>
+      Promise.resolve({
+        token: 'ESTA-INVITACION-ES-DE-MUESTRA',
+        expiresAt: new Date(now().getTime() + 86_400_000),
+      }),
+    acceptInvitation: () => Promise.resolve(),
+  }
+}
+
+/** En modo muestra siempre hay una sesión abierta: no hay a quién pedirle un código. */
+export function demoAuth(): Auth {
+  return {
+    current: () => Promise.resolve({ userId: '1' }),
+    subscribe: () => () => {},
+    requestCode: () => Promise.resolve(),
+    verifyCode: () => Promise.resolve(),
+    signOut: () => Promise.resolve(),
   }
 }

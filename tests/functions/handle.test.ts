@@ -8,6 +8,7 @@ import {
   createFamily,
   createInvitation,
   getFamilyCode,
+  listFamilies,
   listFamilyMembers,
   removeFamilyMember,
   setMemberRole,
@@ -196,6 +197,16 @@ describe('list-family-members', () => {
     const { body, calls } = await run(listFamilyMembers, { family_id: FAMILY }, fakeRpc({ data: members }))
     expect(body).toEqual({ members })
     expect(calls).toEqual([{ fn: 'list_family_members', args: { p_actor: ACTOR, p_family_id: FAMILY } }])
+  })
+})
+
+describe('list-families', () => {
+  test('pide las familias del actor de la sesión, sin importar lo que venga en el cuerpo', async () => {
+    const families = [{ id: FAMILY, name: 'Familia Pérez', role: 'admin' }]
+    const { status, body, calls } = await run(listFamilies, { p_actor: TARGET, user_id: TARGET }, fakeRpc({ data: families }))
+    expect(status).toBe(200)
+    expect(body).toEqual({ families })
+    expect(calls).toEqual([{ fn: 'list_families', args: { p_actor: ACTOR } }])
   })
 })
 
